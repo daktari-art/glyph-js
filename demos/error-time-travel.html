@@ -512,38 +512,92 @@ async function loadUserDashboard() {
 }
 
 function analyzeCodeStructure(code) {
-    let flowSteps = [];
+    const bugs = detectSpecificBugs(code);
     
-    if (code.includes('async') || code.includes('await') || code.includes('.then')) {
-        // ASYNC FLOW
-        flowSteps = [
-            { icon: '📥', label: 'Input', status: 'success', data: 'user data' },
-            { icon: '🌐', label: 'API Call', status: 'success', data: 'fetch user' },
-            { icon: '⚙️', label: 'Process', status: 'warning', data: 'transform data' },
-            { icon: '💥', label: 'Error', status: 'error', data: 'undefined access' }
-        ];
-    } 
-    else if (code.includes('addEventListener') || code.includes('onclick')) {
-        // EVENT FLOW
-        flowSteps = [
-            { icon: '🎯', label: 'Event', status: 'success', data: 'user click' },
-            { icon: '⚙️', label: 'Handler', status: 'success', data: 'process event' },
-            { icon: '💾', label: 'Memory', status: 'warning', data: 'potential leak' },
-            { icon: '📤', label: 'Output', status: 'success', data: 'UI update' }
-        ];
+    if (bugs.length > 0) {
+        // SHOW SPECIFIC BUG FLOW
+        return {
+            flowSteps: [
+                { icon: '📥', label: 'Input', status: 'success', data: 'user request' },
+                { icon: '🔍', label: 'Bug Scan', status: 'warning', data: `${bugs.length} bugs found` },
+                ...bugs.map(bug => ({
+                    icon: bug.icon,
+                    label: bug.type,
+                    status: 'error', 
+                    data: bug.description
+                })),
+                { icon: '💥', label: 'Multi-Failure', status: 'error', data: 'cascade errors' }
+            ]
+        };
+    } else {
+        // DEFAULT FLOW
+        return {
+            flowSteps: [
+                { icon: '🔍', label: 'Parse', status: 'success', data: 'code analysis' },
+                { icon: '⚙️', label: 'Execute', status: 'success', data: 'run logic' },
+                { icon: '📊', label: 'Result', status: 'success', data: 'output' },
+                { icon: '✅', label: 'Complete', status: 'success', data: 'finished' }
+            ]
+        };
     }
-    else {
-        // DEFAULT EXECUTION FLOW
-        flowSteps = [
-            { icon: '🔍', label: 'Parse', status: 'success', data: 'code analysis' },
-            { icon: '⚙️', label: 'Execute', status: 'success', data: 'run logic' },
-            { icon: '📊', label: 'Result', status: 'success', data: 'output' },
-            { icon: '✅', label: 'Complete', status: 'success', data: 'finished' }
-        ];
-    }
-    
-    return { flowSteps };
 }
+
+function detectSpecificBugs(code) {
+    const bugs = [];
+    
+    // BUG 1: Missing null check before API call
+    if (code.includes('const userId =') && code.includes('fetchUserProfile(userId)') && 
+        !code.includes('if (userId)') && !code.includes('userId &&')) {
+        bugs.push({
+            icon: '❓',
+            type: 'Null Check',
+            description: 'userId used without validation'
+        });
+    }
+    
+    // BUG 2: Assuming perfect API data
+    if (code.includes('userData.settings.preferences') && 
+        !code.includes('userData.settings?.preferences') && 
+        !code.includes('userData.settings &&')) {
+        bugs.push({
+            icon: '📊', 
+            type: 'Data Assumption',
+            description: 'Assuming settings exists'
+        });
+    }
+    
+    // BUG 3: Race condition with dependent data
+    if (code.includes('Promise.all') && code.includes('userData.inboxId')) {
+        bugs.push({
+            icon: '⚡',
+            type: 'Race Condition', 
+            description: 'inboxId used before guaranteed'
+        });
+    }
+    
+    // BUG 4: Complex merge without validation
+    if (code.includes('mergeDashboardData') && 
+        code.split('mergeDashboardData').length > 2) {
+        bugs.push({
+            icon: '🔄',
+            type: 'Data Merge',
+            description: 'No input validation'
+        });
+    }
+    
+    // BUG 5: Generic error handling
+    if (code.includes('catch (error)') && 
+        !code.includes('error.type') && 
+        !code.includes('error.message.includes')) {
+        bugs.push({
+            icon: '🎯',
+            type: 'Error Handling',
+            description: 'Generic catch block'
+        });
+    }
+    
+    return bugs;
+                                         }
 
         function createVisualStep(codeLine, stepNumber) {
             const step = document.createElement('div');
@@ -602,41 +656,55 @@ function analyzeCodeStructure(code) {
 }
 
 function showSmartAnalysis(code) {
-    let analysisHTML = '';
+    const bugs = detectSpecificBugs(code);
     
-    if (code.includes('undefined') || code.includes('null') || code.includes('.') && code.includes('(')) {
-        analysisHTML = `
+    if (bugs.length > 0) {
+        analysisResults.innerHTML = `
             <div class="root-cause">
-                <div class="root-cause-title">🔍 Glyph Analysis</div>
-                <div>Potential undefined access detected in property chain</div>
+                <div class="root-cause-title">🔍 Glyph Deep Analysis</div>
+                <div>Found ${bugs.length} specific bugs in your code:</div>
+                <div style="margin-top: 10px;">
+                    ${bugs.map(bug => `
+                        <div style="display: flex; align-items: center; gap: 10px; margin: 5px 0;">
+                            <span>${bug.icon}</span>
+                            <strong>${bug.type}:</strong>
+                            <span>${bug.description}</span>
+                        </div>
+                    `).join('')}
+                </div>
             </div>
             <div class="fix-suggestion">
-                <div class="root-cause-title" style="color: var(--success);">💡 Suggested Fix</div>
-                <div>Use optional chaining: <code>object?.property?.subProperty</code></div>
-            </div>
-        `;
-    } else if (code.includes('async') || code.includes('await')) {
-        analysisHTML = `
-            <div class="root-cause">
-                <div class="root-cause-title">🔍 Glyph Analysis</div>
-                <div>Async operation detected - watch for race conditions</div>
-            </div>
-            <div class="fix-suggestion">
-                <div class="root-cause-title" style="color: var(--success);">💡 Suggested Fix</div>
-                <div>Use <code>Promise.all()</code> for parallel operations</div>
+                <div class="root-cause-title" style="color: var(--success);">💡 Specific Fixes</div>
+                <div>
+                    ${bugs.map(bug => `
+                        <div style="margin: 8px 0;">
+                            <strong>${bug.icon} ${bug.type}:</strong><br>
+                            <code>${getSpecificFix(bug.type)}</code>
+                        </div>
+                    `).join('')}
+                </div>
             </div>
         `;
     } else {
-        analysisHTML = `
+        analysisResults.innerHTML = `
             <div class="fix-suggestion">
                 <div class="root-cause-title" style="color: var(--success);">✅ Code Analysis Complete</div>
-                <div>No obvious errors detected. Glyph is monitoring execution flow.</div>
+                <div>No obvious bugs detected. Glyph is monitoring execution flow.</div>
             </div>
         `;
     }
-    
-    analysisResults.innerHTML = analysisHTML;
 }
+
+function getSpecificFix(bugType) {
+    const fixes = {
+        'Null Check': 'if (userId) { await fetchUserProfile(userId); }',
+        'Data Assumption': 'const preferences = userData.settings?.preferences;',
+        'Race Condition': 'const userData = await fetchUserProfile();\nconst messages = await fetchMessages(userData.inboxId);',
+        'Data Merge': 'if (!user || !prefs) throw new Error("Missing data");',
+        'Error Handling': 'catch (error) {\n  if (error.message.includes("user")) { /* specific handling */ }\n}'
+    };
+    return fixes[bugType] || 'Review code logic';
+        }
 
         function updateVisualSteps(result) {
             const steps = document.querySelectorAll('.visual-step');
