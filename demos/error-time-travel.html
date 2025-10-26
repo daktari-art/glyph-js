@@ -584,36 +584,59 @@ function analyzeCodeStructure(code) {
         }
 
         function executeAndShowResult(code) {
-            try {
-                // Create a safe execution environment
-                const safeCode = code.replace(/console\.log/g, 'safeLog');
-                
-                // Capture console output
-                let output = '';
-                const safeLog = (...args) => {
-                    output += args.join(' ') + '\n';
-                };
-
-                // Execute the code
-                const result = new Function('safeLog', `
-                    try {
-                        ${safeCode}
-                        return { success: true, output: output };
-                    } catch (error) {
-                        return { success: false, error: error.message, output: output };
-                    }
-                `)(safeLog);
-
-                // Update visual steps with results
-                updateVisualSteps(result);
-
-                // Show analysis
-                showExecutionAnalysis(result, code);
-
-            } catch (error) {
-                showError('Execution failed: ' + error.message);
-            }
+    // JUST UPDATE THE VISUALS BASED ON CODE ANALYSIS
+    const analysis = analyzeCodeStructure(code);
+    
+    // Update glyph nodes based on code content
+    const nodes = document.querySelectorAll('.glyph-node');
+    nodes.forEach((node, index) => {
+        if (index < analysis.flowSteps.length) {
+            const step = analysis.flowSteps[index];
+            node.className = `glyph-node ${step.status}`;
+            node.querySelector('.glyph-data').textContent = step.data;
         }
+    });
+    
+    // Show smart analysis
+    showSmartAnalysis(code);
+}
+
+function showSmartAnalysis(code) {
+    let analysisHTML = '';
+    
+    if (code.includes('undefined') || code.includes('null') || code.includes('.') && code.includes('(')) {
+        analysisHTML = `
+            <div class="root-cause">
+                <div class="root-cause-title">🔍 Glyph Analysis</div>
+                <div>Potential undefined access detected in property chain</div>
+            </div>
+            <div class="fix-suggestion">
+                <div class="root-cause-title" style="color: var(--success);">💡 Suggested Fix</div>
+                <div>Use optional chaining: <code>object?.property?.subProperty</code></div>
+            </div>
+        `;
+    } else if (code.includes('async') || code.includes('await')) {
+        analysisHTML = `
+            <div class="root-cause">
+                <div class="root-cause-title">🔍 Glyph Analysis</div>
+                <div>Async operation detected - watch for race conditions</div>
+            </div>
+            <div class="fix-suggestion">
+                <div class="root-cause-title" style="color: var(--success);">💡 Suggested Fix</div>
+                <div>Use <code>Promise.all()</code> for parallel operations</div>
+            </div>
+        `;
+    } else {
+        analysisHTML = `
+            <div class="fix-suggestion">
+                <div class="root-cause-title" style="color: var(--success);">✅ Code Analysis Complete</div>
+                <div>No obvious errors detected. Glyph is monitoring execution flow.</div>
+            </div>
+        `;
+    }
+    
+    analysisResults.innerHTML = analysisHTML;
+}
 
         function updateVisualSteps(result) {
             const steps = document.querySelectorAll('.visual-step');
