@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f8f9fa;
+        }
+        .header {
+            background: #1971c2;
+            color: white;
+            padding: 12px 16px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .function-list {
+            padding: 8px;
+        }
+        .function-call {
+            background: white;
+            margin: 6px 0;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border-left: 4px solid #1971c2;
+            font-size: 12px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+        .function-name {
+            font-weight: 600;
+            color: #1c1e21;
+        }
+        .function-status {
+            margin-left: 8px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+        .status-started { background: #fff3bf; color: #e67700; }
+        .status-completed { background: #d3f9d8; color: #2b8a3e; }
+        .status-errored { background: #ffe3e3; color: #c92a2a; }
+        .function-args {
+            margin-top: 4px;
+            color: #65676b;
+            font-family: monospace;
+            font-size: 11px;
+        }
+        .empty-state {
+            text-align: center;
+            color: #8a8d91;
+            padding: 40px 20px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        🔮 Glyph.js Debugger
+    </div>
+    <div class="function-list" id="functionList">
+        <div class="empty-state">
+            No function calls yet...<br>
+            <small>Interact with the webpage to see function calls</small>
+        </div>
+    </div>
+
+    <script src="devtools.js"></script>
+</body>
+</html>
