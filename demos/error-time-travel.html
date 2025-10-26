@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Glyph.js - Error Time Travel</title>
+    <style>
+        .time-travel { margin: 20px; padding: 15px; border: 2px solid #1971c2; border-radius: 8px; }
+        .execution-path { display: flex; overflow-x: auto; margin: 15px 0; padding: 10px; background: #f5f5f5; }
+        .step { padding: 8px 12px; margin: 0 5px; background: white; border-radius: 4px; border: 1px solid #ddd; min-width: 120px; }
+        .step.error { border-color: #dc3545; background: #ffe6e6; }
+        .step.current { border-color: #1971c2; background: #e3f2fd; }
+    </style>
+</head>
+<body>
+    <h1>⏰ Glyph.js Error Time Travel</h1>
+    
+    <div class="time-travel">
+        <h3>Paste Error Stack Trace:</h3>
+        <textarea id="errorInput" placeholder="Paste error stack trace here..." rows="4" style="width: 100%; padding: 10px;"></textarea>
+        <button onclick="analyzeError()">Time Travel Debug</button>
+    </div>
+
+    <div id="result" style="display: none;">
+        <h3>🎯 Execution Path to Error:</h3>
+        <div class="execution-path" id="executionPath"></div>
+        <div id="breakdown"></div>
+    </div>
+
+    <script>
+        function analyzeError() {
+            const errorText = document.getElementById('errorInput').value;
+            const resultDiv = document.getElementById('result');
+            const pathDiv = document.getElementById('executionPath');
+            const breakdownDiv = document.getElementById('breakdown');
+            
+            // Simulate Glyph analysis
+            const analysis = simulateErrorAnalysis(errorText);
+            
+            // Show execution path
+            pathDiv.innerHTML = analysis.path.map(step => 
+                `<div class="step ${step.type}">${step.icon} ${step.name}</div>`
+            ).join('→');
+            
+            // Show breakdown
+            breakdownDiv.innerHTML = `
+                <h4>🔍 Root Cause Analysis:</h4>
+                <p>${analysis.rootCause}</p>
+                <h4>💡 Suggested Fix:</h4>
+                <p>${analysis.suggestion}</p>
+            `;
+            
+            resultDiv.style.display = 'block';
+        }
+
+        function simulateErrorAnalysis(errorText) {
+            // This would be AI-powered in real Glyph
+            return {
+                path: [
+                    { name: 'User Login', icon: '🔐', type: 'normal' },
+                    { name: 'API Call', icon: '🌐', type: 'normal' },
+                    { name: 'Data Parse', icon: '⚙️', type: 'normal' },
+                    { name: 'Null Check', icon: '❌', type: 'error' },
+                    { name: 'TypeError', icon: '💥', type: 'error' }
+                ],
+                rootCause: 'Missing null check after async API response',
+                suggestion: 'Add optional chaining: user?.profile?.name instead of user.profile.name'
+            };
+        }
+    </script>
+</body>
+</html>
