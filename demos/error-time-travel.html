@@ -424,295 +424,163 @@ async function loadUserDashboard() {
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const codeInput = document.getElementById('codeInput');
-            const executeBtn = document.getElementById('executeBtn');
-            const timeTravelBtn = document.getElementById('timeTravelBtn');
-            const clearBtn = document.getElementById('clearBtn');
-            const pipeline = document.getElementById('pipeline');
-            const timeSlider = document.getElementById('timeSlider');
-            const prevStepBtn = document.getElementById('prevStep');
-            const nextStepBtn = document.getElementById('nextStep');
-            const currentExecution = document.getElementById('currentExecution');
-            const analysisResults = document.getElementById('analysisResults');
-            const demoLinks = document.querySelectorAll('.demo-link[data-example]');
-            
-            // GLYPH EXECUTION TRACES - Using our standardized glyph system
-            const examples = {
-                'async-error': {
-                    code: `// REAL BUGGY CODE FROM OUR GLYPH TESTING
+        <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const codeInput = document.getElementById('codeInput');
+        const executeBtn = document.getElementById('executeBtn');
+        const timeTravelBtn = document.getElementById('timeTravelBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const pipeline = document.getElementById('pipeline');
+        const analysisResults = document.getElementById('analysisResults');
+        const demoLinks = document.querySelectorAll('.demo-link[data-example]');
+
+        // SIMPLE WORKING EXAMPLES (like our original demo)
+        const examples = {
+            'async-error': {
+                code: `// REAL BUGGY CODE FROM OUR GLYPH TESTING
 async function loadUserDashboard() {
     const userId = getUserIdFromURL();
     
     try {
         const userData = await fetchUserProfile(userId);
-        const preferences = userData.settings.preferences; // 🔥 BUG
+        const preferences = userData.settings.preferences; // 🔥 BUG HERE
         const dashboard = mergeDashboardData(userData, preferences);
         renderDashboard(dashboard);
     } catch (error) {
         console.error('💥 Dashboard failed:', error);
     }
 }`,
-                    trace: [
-                        { 
-                            step: '📥 User Login', 
-                            status: 'success', 
-                            icon: '📥',
-                            data: 'User ID: 123', 
-                            time: 0 
-                        },
-                        { 
-                            step: '🌐 Fetch User Profile', 
-                            status: 'success', 
-                            icon: '🌐',
-                            data: 'User data loaded: {id: 123, name: "John"}', 
-                            time: 500 
-                        },
-                        { 
-                            step: '⚙️ Access Preferences', 
-                            status: 'error', 
-                            icon: '💥',
-                            data: 'TypeError: Cannot read properties of undefined (reading "preferences")', 
-                            time: 600,
-                            isError: true 
-                        },
-                        { 
-                            step: '🔄 Error Handler', 
-                            status: 'warning', 
-                            icon: '⚠️',
-                            data: 'Generic catch block - no specific recovery', 
-                            time: 700 
-                        }
+                analysis: {
+                    path: [
+                        { name: '📥 User Login', status: 'success' },
+                        { name: '🌐 Fetch Profile', status: 'success' },
+                        { name: '⚙️ Access Settings', status: 'error' },
+                        { name: '💥 TypeError', status: 'error' }
                     ],
-                    rootCause: 'Data shape mismatch: userData.settings is undefined but code assumes it exists',
+                    rootCause: 'userData.settings is undefined but code assumes it exists',
                     fix: 'Add null check: const preferences = userData.settings?.preferences || {};'
-                },
-                'race-condition': {
-                    code: `// RACE CONDITION EXAMPLE
+                }
+            },
+            'race-condition': {
+                code: `// Race condition example
 let user, profile;
 
 fetchUser().then(data => user = data);
 fetchProfile().then(data => profile = data);
 
-// Use both - but profile might not be ready
 setTimeout(() => {
-    renderUserProfile(user, profile); // 💥 profile undefined
+    renderProfile(user, profile); // profile might be undefined
 }, 100);`,
-                    trace: [
-                        { 
-                            step: '🌐 Fetch User', 
-                            status: 'success', 
-                            icon: '🌐',
-                            data: 'User data loaded', 
-                            time: 0 
-                        },
-                        { 
-                            step: '🌐 Fetch Profile', 
-                            status: 'success', 
-                            icon: '🌐',
-                            data: 'Profile data loaded', 
-                            time: 150 
-                        },
-                        { 
-                            step: '⏰ Timeout Trigger', 
-                            status: 'warning', 
-                            icon: '⚡',
-                            data: 'Race condition: profile not ready yet', 
-                            time: 100 
-                        },
-                        { 
-                            step: '🎨 Render Profile', 
-                            status: 'error', 
-                            icon: '💥',
-                            data: 'profile is undefined', 
-                            time: 101,
-                            isError: true 
-                        }
+                analysis: {
+                    path: [
+                        { name: '🌐 Fetch User', status: 'success' },
+                        { name: '🌐 Fetch Profile', status: 'success' },
+                        { name: '⚡ Timeout', status: 'warning' },
+                        { name: '💥 Render Error', status: 'error' }
                     ],
-                    rootCause: 'Race condition: renderUserProfile called before fetchProfile completed',
-                    fix: 'Use Promise.all([fetchUser(), fetchProfile()]).then(([user, profile]) => renderUserProfile(user, profile));'
-                },
-                'memory-leak': {
-                    code: `// MEMORY LEAK EXAMPLE
-class DataProcessor {
+                    rootCause: 'renderProfile called before fetchProfile completed',
+                    fix: 'Use Promise.all([fetchUser(), fetchProfile()])'
+                }
+            },
+            'memory-leak': {
+                code: `// Memory leak example
+class Component {
     constructor() {
-        this.largeData = new Array(1000000).fill('data');
+        this.data = largeArray;
         window.addEventListener('click', this.handleClick);
     }
-    
     handleClick = () => {
-        processData(this.largeData); // Never cleaned up
+        process(this.data); // Never cleaned up
     }
 }`,
-                    trace: [
-                        { 
-                            step: '🏠 Create Processor', 
-                            status: 'success', 
-                            icon: '🏠',
-                            data: 'Memory allocated: 8.3MB', 
-                            time: 0 
-                        },
-                        { 
-                            step: '🎯 Add Event Listener', 
-                            status: 'warning', 
-                            icon: '⚠️',
-                            data: 'Potential leak: listener not removed', 
-                            time: 1 
-                        },
-                        { 
-                            step: '🗑️ Destroy Processor', 
-                            status: 'warning', 
-                            icon: '⚠️',
-                            data: 'Memory not freed: 8.3MB retained', 
-                            time: 2 
-                        },
-                        { 
-                            step: '💾 Multiple Instances', 
-                            status: 'error', 
-                            icon: '💥',
-                            data: 'Memory usage: 83MB and growing', 
-                            time: 10,
-                            isError: true 
-                        }
+                analysis: {
+                    path: [
+                        { name: '🏠 Create Component', status: 'success' },
+                        { name: '🎯 Add Listener', status: 'warning' },
+                        { name: '🗑️ Destroy', status: 'warning' },
+                        { name: '💾 Memory Leak', status: 'error' }
                     ],
-                    rootCause: 'Event listeners not removed on instance destruction',
-                    fix: 'Add cleanup: window.removeEventListener("click", this.handleClick); in destroy method'
+                    rootCause: 'Event listener not removed on destruction',
+                    fix: 'Add removeEventListener in cleanup method'
                 }
-            };
-            
-            // Set up demo buttons
-            demoLinks.forEach(link => {
-                link.addEventListener('click', function() {
-                    const exampleType = this.getAttribute('data-example');
-                    const example = examples[exampleType];
-                    codeInput.value = example.code;
-                    visualizeExecution(example.trace, example.rootCause, example.fix);
-                });
-            });
-            
-            // Execute trace - USING OUR ACTUAL BUGGY CODE
-            executeBtn.addEventListener('click', function() {
-                const code = codeInput.value;
-                // Use our real buggy code example
-                visualizeExecution(examples['async-error'].trace, examples['async-error'].rootCause, examples['async-error'].fix);
-            });
-            
-            // Time travel debug
-            timeTravelBtn.addEventListener('click', function() {
-                startTimeTravel();
-            });
-            
-            // Clear
-            clearBtn.addEventListener('click', function() {
-                codeInput.value = '';
-                pipeline.innerHTML = '<div class="current-execution" id="currentExecution"></div>';
-                analysisResults.innerHTML = '';
-                currentExecution.style.display = 'none';
-            });
-            
-            // Time travel controls
-            timeSlider.addEventListener('input', updateTimeTravel);
-            prevStepBtn.addEventListener('click', () => moveTimeTravel(-1));
-            nextStepBtn.addEventListener('click', () => moveTimeTravel(1));
-            
-            let currentTrace = [];
-            let currentStep = 0;
-            
+            }
+        };
 
-function visualizeExecution(trace, rootCause, fix) {
-    currentTrace = trace;
-    currentStep = trace.length - 1;
-    
-    console.log('🔄 Visualizing execution with trace:', trace); // Debug log
-    
-    // Clear previous content
-    pipeline.innerHTML = '';
-    currentExecution = document.createElement('div');
-    currentExecution.id = 'currentExecution';
-    currentExecution.className = 'current-execution';
-    pipeline.appendChild(currentExecution);
-    
-    // Add new steps
-    trace.forEach((step, index) => {
-        const stepEl = document.createElement('div');
-        stepEl.className = `pipeline-step ${step.isError ? 'error' : step.status}`;
-        stepEl.innerHTML = `
-            <div class="step-header">
-                <div class="step-title">${step.step}</div>
-                <div class="step-status status-${step.status}">${step.status.toUpperCase()}</div>
-            </div>
-            <div class="step-details">Execution time: ${step.time}ms</div>
-            <div class="step-data">${step.data}</div>
-        `;
-        pipeline.appendChild(stepEl);
-    });
-    
-    // Show analysis - FIXED: This was missing
-    analysisResults.innerHTML = `
-        <div class="root-cause">
-            <div class="root-cause-title">🔍 Root Cause Identified</div>
-            <div>${rootCause}</div>
-        </div>
-        <div class="fix-suggestion">
-            <div class="root-cause-title" style="color: var(--success);">💡 Suggested Fix</div>
-            <div><code>${fix}</code></div>
-        </div>
-    `;
-    
-    // Initialize time travel
-    updateExecutionIndicator();
-    
-    console.log('✅ Visualization complete'); // Debug log
-}
-            
-            function startTimeTravel() {
-                if (currentTrace.length === 0) return;
-                
-                currentStep = 0;
-                updateTimeTravel();
-                timeSlider.value = 0;
-            }
-            
-            function updateTimeTravel() {
-                if (currentTrace.length === 0) return;
-                
-                const stepIndex = Math.floor((timeSlider.value / 100) * (currentTrace.length - 1));
-                currentStep = stepIndex;
-                updateExecutionIndicator();
-            }
-            
-            function moveTimeTravel(direction) {
-                if (currentTrace.length === 0) return;
-                
-                currentStep = Math.max(0, Math.min(currentTrace.length - 1, currentStep + direction));
-                timeSlider.value = (currentStep / (currentTrace.length - 1)) * 100;
-                updateExecutionIndicator();
-            }
-            
-            function updateExecutionIndicator() {
-                if (currentTrace.length === 0) return;
-                
-                const steps = document.querySelectorAll('.glyph-step');
-                if (steps.length === 0) return;
-                
-                const currentStepEl = steps[currentStep];
-                const stepTop = currentStepEl.offsetTop - pipeline.offsetTop;
-                const stepHeight = currentStepEl.offsetHeight;
-                
-                currentExecution.style.display = 'block';
-                currentExecution.style.top = `${stepTop}px`;
-                currentExecution.style.height = `${stepHeight}px`;
-                
-                // Highlight the current step
-                steps.forEach((step, index) => {
-                    step.style.opacity = index <= currentStep ? '1' : '0.5';
-                });
-            }
-            
-            // Initial demo - USING OUR REAL EXAMPLE
-            visualizeExecution(examples['async-error'].trace, examples['async-error'].rootCause, examples['async-error'].fix);
+        // SIMPLE DEMO BUTTONS (like our working demo)
+        demoLinks.forEach(link => {
+            link.addEventListener('click', function() {
+                const exampleType = this.getAttribute('data-example');
+                const example = examples[exampleType];
+                if (example) {
+                    codeInput.value = example.code;
+                    analyzeCode(example.analysis);
+                }
+            });
         });
-    </script>
+
+        // SIMPLE EXECUTE (like our working demo)
+        executeBtn.addEventListener('click', function() {
+            const code = codeInput.value;
+            
+            // Simple analysis based on content
+            let analysis;
+            if (code.includes('race') || code.includes('Race')) {
+                analysis = examples['race-condition'].analysis;
+            } else if (code.includes('memory') || code.includes('leak')) {
+                analysis = examples['memory-leak'].analysis;
+            } else {
+                analysis = examples['async-error'].analysis;
+            }
+            
+            analyzeCode(analysis);
+        });
+
+        // SIMPLE TIME TRAVEL (just show execution path)
+        timeTravelBtn.addEventListener('click', function() {
+            const code = codeInput.value;
+            if (!code.trim()) return;
+            
+            // Show simple execution path
+            const analysis = examples['async-error'].analysis;
+            analyzeCode(analysis);
+        });
+
+        // SIMPLE CLEAR
+        clearBtn.addEventListener('click', function() {
+            codeInput.value = '';
+            pipeline.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">No execution trace yet...</div>';
+            analysisResults.innerHTML = '';
+        });
+
+        // SIMPLE ANALYSIS FUNCTION (like our working demo)
+        function analyzeCode(analysis) {
+            // Show execution path
+            pipeline.innerHTML = analysis.path.map(step => `
+                <div class="pipeline-step ${step.status}">
+                    <div class="step-header">
+                        <div class="step-title">${step.name}</div>
+                        <div class="step-status status-${step.status}">${step.status.toUpperCase()}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Show analysis
+            analysisResults.innerHTML = `
+                <div class="root-cause">
+                    <div class="root-cause-title">🔍 Root Cause Identified</div>
+                    <div>${analysis.rootCause}</div>
+                </div>
+                <div class="fix-suggestion">
+                    <div class="root-cause-title" style="color: var(--success);">💡 Suggested Fix</div>
+                    <div><code>${analysis.fix}</code></div>
+                </div>
+            `;
+        }
+
+        // INITIAL DEMO
+        analyzeCode(examples['async-error'].analysis);
+    });
+</script>
+
 </body>
 </html>
