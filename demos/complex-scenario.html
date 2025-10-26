@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Glyph.js - Real World Debugging Demo</title>
+    <style>
+        .glyph-pipeline {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .glyph-stage {
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        .problem { border-color: #dc3545; background: #ffe6e6; }
+        .solution { border-color: #28a745; background: #e6ffe6; }
+    </style>
+</head>
+<body>
+    <h1>🔮 Glyph.js - Solving Real Debugging Nightmares</h1>
+
+    <div class="glyph-pipeline">
+        <!-- PROBLEM COLUMN -->
+        <div class="glyph-stage problem">
+            <h3>❌ CURRENT REALITY</h3>
+            <h4>Async Data Pipeline Hell</h4>
+            
+            <div class="glyph-flow">
+                <div>[📥 User Login]</div>
+                <div>↓ <small>invisible</small></div>
+                <div>[⚙️ Auth Validation]</div>
+                <div>↓ <small>race condition?</small></div>
+                <div>[🌐 Fetch User Profile]</div>
+                <div>↓ <small>404 error somewhere</small></div>
+                <div>[🌐 Fetch Preferences]</div>
+                <div>↓ <small>stale data?</small></div>
+                <div>[⚙️ Merge Data]</div>
+                <div>↓ <small>wrong merge logic</small></div>
+                <div>[🎨 Render UI]</div>
+                <div class="error">💥 Blank screen - WHY?</div>
+            </div>
+
+            <div class="debug-time">
+                <strong>🕒 Debugging Time: 2-4 hours</strong><br>
+                <small>Console.log spam, breakpoint hopping, mental mapping</small>
+            </div>
+        </div>
+
+        <!-- SOLUTION COLUMN -->
+        <div class="glyph-stage solution">
+            <h3>✅ GLYPH SOLUTION</h3>
+            <h4>Visual Execution Pipeline</h4>
+            
+            <div class="glyph-flow">
+                <div>[📥 User Login] → <small>success</small></div>
+                <div>↓</div>
+                <div>[⚙️ Auth Validation] → <small style="color:green">✅ valid</small></div>
+                <div>↓</div>
+                <div>[🌐 Fetch User Profile] → <small style="color:red">❌ 404 error</small></div>
+                <div class="error">💥 Pipeline halted: User not found</div>
+                <div>↓</div>
+                <div>[🔄 Fallback Handler] → <small>loading cached data</small></div>
+                <div>↓</div>
+                <div>[🎨 Render UI] → <small>with fallback data</small></div>
+            </div>
+
+            <div class="debug-time">
+                <strong>🕒 Debugging Time: 10 seconds</strong><br>
+                <small>Visual flow shows EXACTLY where it broke and why</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- REAL CODE EXAMPLE -->
+    <div style="margin-top: 30px; border-top: 2px solid #ccc; padding-top: 20px;">
+        <h3>🧪 Live Complex Scenario</h3>
+        <button onclick="runComplexPipeline()">Run Complex Data Pipeline</button>
+        <button onclick="runRaceCondition()">Simulate Race Condition</button>
+        <button onclick="runMemoryLeak()">Simulate Memory Issue</button>
+        
+        <div id="pipelineResult" style="margin-top: 15px; padding: 15px; background: #f5f5f5; border-radius: 5px;">
+            <strong>Pipeline Result:</strong> <span id="resultText">Not run yet</span>
+        </div>
+    </div>
+
+    <script>
+        // Complex real-world scenario
+        async function runComplexPipeline() {
+            const resultEl = document.getElementById('resultText');
+            resultEl.innerHTML = '🔄 Running complex pipeline...';
+            resultEl.style.color = 'orange';
+
+            try {
+                // Simulate complex async workflow
+                const user = await simulateAPI('/api/user', 800);
+                const permissions = await simulateAPI(`/api/permissions/${user.id}`, 600);
+                const features = await simulateAPI(`/api/features/${user.plan}`, 400);
+                
+                // Complex data transformation
+                const config = mergeConfigs(user, permissions, features);
+                const uiState = calculateUIState(config);
+                
+                resultEl.innerHTML = `✅ Success! Rendered ${uiState.components} components`;
+                resultEl.style.color = 'green';
+                
+            } catch (error) {
+                resultEl.innerHTML = `💥 Failed: ${error.message}`;
+                resultEl.style.color = 'red';
+            }
+        }
+
+        function runRaceCondition() {
+            const resultEl = document.getElementById('resultText');
+            resultEl.innerHTML = '🎯 Simulating race condition...';
+            
+            // Demonstrate how Glyph would visualize race conditions
+            let finalValue = 0;
+            
+            setTimeout(() => { finalValue = 1; }, 100);
+            setTimeout(() => { finalValue = 2; }, 50); // This wins due to timing
+            
+            setTimeout(() => {
+                resultEl.innerHTML = `🤯 Race condition: finalValue = ${finalValue} (expected 1)`;
+                resultEl.style.color = 'purple';
+            }, 200);
+        }
+
+        function runMemoryLeak() {
+            const resultEl = document.getElementById('resultText');
+            resultEl.innerHTML = '🧠 Simulating memory leak detection...';
+            
+            // Simulate what Glyph would catch
+            const leaks = [];
+            for (let i = 0; i < 1000; i++) {
+                leaks.push(new Array(1000).fill('leak'));
+            }
+            
+            resultEl.innerHTML = `⚠️ Memory: ${leaks.length} potential leaks detected`;
+            resultEl.style.color = 'orange';
+        }
+
+        // Helper functions
+        async function simulateAPI(endpoint, delay) {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    if (Math.random() > 0.2) { // 80% success rate
+                        resolve({ id: Math.random(), endpoint, data: 'mock' });
+                    } else {
+                        reject(new Error(`API ${endpoint} failed`));
+                    }
+                }, delay);
+            });
+        }
+
+        function mergeConfigs(user, permissions, features) {
+            // Simulate complex business logic
+            if (!user || !permissions || !features) {
+                throw new Error('Invalid data merge');
+            }
+            return { user, permissions, features, mergedAt: Date.now() };
+        }
+
+        function calculateUIState(config) {
+            return { components: Math.floor(Math.random() * 50) + 10 };
+        }
+    </script>
+</body>
+</html>
