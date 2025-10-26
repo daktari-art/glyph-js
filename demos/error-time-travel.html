@@ -524,41 +524,82 @@ executeBtn.addEventListener('click', function() {
     const code = codeInput.value.trim();
     
     if (!code) {
-        alert('Please paste some error code first!');
+        alert('Please paste some code or error first!');
         return;
     }
     
-    // SIMPLE PATTERN MATCHING FOR REAL ERROR ANALYSIS
-    let analysis;
+    console.log('🔍 Analyzing code:', code);
     
-    if (code.includes('userData.settings.preferences') || 
-        code.includes('Cannot read') || 
-        code.includes('TypeError') ||
-        code.includes('undefined')) {
-        analysis = examples['async-error'].analysis;
-    }
-    else if (code.includes('Promise.all') === false && 
-             (code.includes('Promise') || code.includes('setTimeout') || code.includes('then('))) {
-        analysis = examples['race-condition'].analysis;
-    }
-    else if (code.includes('addEventListener') || code.includes('removeEventListener') === false) {
-        analysis = examples['memory-leak'].analysis;
-    }
-    else {
-        // Default analysis for any error
-        analysis = {
-            path: [
-                { name: '🔍 Code Analysis', status: 'success' },
-                { name: '🎯 Error Detection', status: 'warning' },
-                { name: '💥 Error Found', status: 'error' }
-            ],
-            rootCause: 'Error detected in pasted code',
-            fix: 'Check the error stack trace for specific line numbers'
-        };
-    }
-    
+    // SMART CODE ANALYSIS
+    const analysis = analyzePastedCode(code);
     analyzeCode(analysis);
 });
+
+// NEW FUNCTION: ACTUALLY ANALYZES THE PASTED CODE
+function analyzePastedCode(code) {
+    let path = [];
+    let rootCause = '';
+    let fix = '';
+    
+    // DETECT ERROR TYPE
+    if (code.includes('TypeError:') || code.includes('Cannot read') || code.includes('undefined')) {
+        // ASYNC/DATA ERROR
+        path = [
+            { name: '📥 Data Input', status: 'success' },
+            { name: '🌐 API Call', status: 'success' },
+            { name: '⚙️ Data Processing', status: 'error' },
+            { name: '💥 TypeError', status: 'error' }
+        ];
+        rootCause = 'Trying to access properties of undefined/null variable';
+        fix = 'Add null checks: variable?.property instead of variable.property';
+    }
+    else if (code.includes('fetch(') || code.includes('.then(') || code.includes('async') || code.includes('await')) {
+        // ASYNC/RACE CONDITION
+        path = [
+            { name: '🌐 API Call 1', status: 'success' },
+            { name: '🌐 API Call 2', status: 'success' },
+            { name: '⚡ Race Condition', status: 'warning' },
+            { name: '💥 Data Missing', status: 'error' }
+        ];
+        rootCause = 'Async operations completing in unexpected order';
+        fix = 'Use Promise.all() or proper async/await sequencing';
+    }
+    else if (code.includes('addEventListener') || code.includes('onclick') || code.includes('onload')) {
+        // MEMORY/EVENT ERROR
+        path = [
+            { name: '🏠 Component Create', status: 'success' },
+            { name: '🎯 Event Listener', status: 'warning' },
+            { name: '🗑️ Cleanup Missing', status: 'warning' },
+            { name: '💾 Memory Leak', status: 'error' }
+        ];
+        rootCause = 'Event listeners not properly cleaned up';
+        fix = 'Add removeEventListener in cleanup/destroy methods';
+    }
+    else if (code.includes('Error:') || code.includes('Exception') || code.includes('throw new')) {
+        // GENERAL ERROR
+        path = [
+            { name: '🔍 Code Execution', status: 'success' },
+            { name: '⚙️ Function Call', status: 'warning' },
+            { name: '💥 Error Thrown', status: 'error' }
+        ];
+        rootCause = 'Exception thrown during execution';
+        fix = 'Add try/catch blocks or fix the underlying logic error';
+    }
+    else {
+        // DEFAULT - SHOW CODE STRUCTURE
+        const lines = code.split('\n').length;
+        path = [
+            { name: '📝 Code Pasted', status: 'success' },
+            { name: `📊 ${lines} lines`, status: 'success' },
+            { name: '🔍 Needs Analysis', status: 'warning' },
+            { name: '💡 Add Error Details', status: 'warning' }
+        ];
+        rootCause = 'Code structure detected but no specific error pattern found';
+        fix = 'Paste actual error message or stack trace for detailed analysis';
+    }
+    
+    return { path, rootCause, fix };
+}
 
         // SIMPLE TIME TRAVEL (just show execution path)
         timeTravelBtn.addEventListener('click', function() {
