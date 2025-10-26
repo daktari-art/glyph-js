@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Glyph.js Mobile Simulation</title>
+    <style>
+        .glyph-panel {
+            border: 2px solid #1971c2;
+            border-radius: 8px;
+            margin: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        .function-call {
+            background: white;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid #1971c2;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔮 Glyph.js Mobile Demo</h1>
+    
+    <button onclick="simulateGlyph()">Simulate Glyph in Action</button>
+    
+    <div class="glyph-panel" id="glyphOutput">
+        <h3>Glyph.js Simulation Panel</h3>
+        <div id="functionCalls">
+            No function calls yet...
+        </div>
+    </div>
+
+    <script>
+        const functionCalls = [];
+        
+        function simulateGlyph() {
+            // Simulate what Glyph would capture
+            addFunctionCall('console.log', ['🔮 Hello from Glyph simulation!']);
+            
+            setTimeout(() => {
+                addFunctionCall('setTimeout', [], 'completed', 'Callback executed');
+            }, 800);
+            
+            setTimeout(() => {
+                addFunctionCall('fetch', ['/api/data'], 'errored', 'Network error');
+            }, 1200);
+        }
+        
+        function addFunctionCall(name, args, status = 'started', result = null) {
+            const call = {
+                id: Date.now(),
+                name,
+                args,
+                status,
+                result,
+                timestamp: new Date().toLocaleTimeString()
+            };
+            
+            functionCalls.push(call);
+            renderFunctionCalls();
+        }
+        
+        function renderFunctionCalls() {
+            const container = document.getElementById('functionCalls');
+            container.innerHTML = functionCalls.map(call => `
+                <div class="function-call">
+                    <strong>${call.name}()</strong> 
+                    <span style="color: ${getStatusColor(call.status)}">
+                        ${getStatusIcon(call.status)} ${call.status}
+                    </span>
+                    <div style="font-size: 12px; color: #666;">
+                        Time: ${call.timestamp}<br>
+                        Args: ${JSON.stringify(call.args)}<br>
+                        ${call.result ? `Result: ${call.result}` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function getStatusIcon(status) {
+            return { started: '🔄', completed: '✅', errored: '❌' }[status] || '⚪';
+        }
+        
+        function getStatusColor(status) {
+            return { started: '#e67700', completed: '#2b8a3e', errored: '#c92a2a' }[status] || '#666';
+        }
+    </script>
+</body>
+</html>
