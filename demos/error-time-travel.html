@@ -461,37 +461,89 @@ async function loadUserDashboard() {
 
         // REAL VISUAL EXECUTION - This is the Glyph vision
         function visualizeCodeExecution(code) {
-            // Create visual execution container
-            const visualContainer = document.createElement('div');
-            visualContainer.className = 'visual-execution';
-            visualContainer.style.display = 'flex';
-            visualContainer.style.flexDirection = 'column';
-            visualContainer.style.gap = '10px';
-            visualContainer.style.margin = '20px 0';
-
-            // Parse code and create visual steps
-            const lines = code.split('\n').filter(line => line.trim());
-            
-            lines.forEach((line, index) => {
-                const step = createVisualStep(line, index);
-                visualContainer.appendChild(step);
-                
-                // Add connecting arrow (except for last line)
-                if (index < lines.length - 1) {
-                    const arrow = document.createElement('div');
-                    arrow.innerHTML = '↓';
-                    arrow.style.textAlign = 'center';
-                    arrow.style.color = '#4a6cf7';
-                    arrow.style.fontSize = '20px';
-                    visualContainer.appendChild(arrow);
-                }
-            });
-
-            pipeline.appendChild(visualContainer);
-
-            // Show live execution result
-            executeAndShowResult(code);
+    // CLEAR previous
+    pipeline.innerHTML = '';
+    
+    // ANALYZE CODE STRUCTURE for DATA FLOW
+    const analysis = analyzeCodeStructure(code);
+    
+    // SHOW DATA FLOW VISUALIZATION (Glyph vision)
+    const flowContainer = document.createElement('div');
+    flowContainer.className = 'glyph-data-flow';
+    flowContainer.innerHTML = `
+        <div style="text-align: center; margin: 20px 0;">
+            <div style="font-size: 1.2rem; color: #4a6cf7; margin-bottom: 10px;">🔮 Glyph Data Flow Visualization</div>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 20px; flex-wrap: wrap;">
+                ${analysis.flowSteps.map(step => `
+                    <div class="glyph-node ${step.status}">
+                        <div class="glyph-icon">${step.icon}</div>
+                        <div class="glyph-label">${step.label}</div>
+                        <div class="glyph-data">${step.data}</div>
+                    </div>
+                `).join('<div style="color: #4a6cf7; font-size: 1.5rem;">→</div>')}
+            </div>
+        </div>
+    `;
+    
+    pipeline.appendChild(flowContainer);
+    
+    // Add Glyph styles
+    const style = document.createElement('style');
+    style.textContent = `
+        .glyph-node {
+            padding: 15px;
+            border-radius: 10px;
+            background: #1e293b;
+            border: 2px solid #334155;
+            text-align: center;
+            min-width: 120px;
+            transition: all 0.3s ease;
         }
+        .glyph-node.success { border-color: #10b981; background: rgba(16, 185, 129, 0.1); }
+        .glyph-node.error { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+        .glyph-node.warning { border-color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+        .glyph-icon { font-size: 2rem; margin-bottom: 8px; }
+        .glyph-label { font-weight: bold; margin-bottom: 5px; color: #f8fafc; }
+        .glyph-data { font-size: 0.8rem; color: #94a3b8; font-family: monospace; }
+    `;
+    document.head.appendChild(style);
+    
+    executeAndShowResult(code);
+}
+
+function analyzeCodeStructure(code) {
+    let flowSteps = [];
+    
+    if (code.includes('async') || code.includes('await') || code.includes('.then')) {
+        // ASYNC FLOW
+        flowSteps = [
+            { icon: '📥', label: 'Input', status: 'success', data: 'user data' },
+            { icon: '🌐', label: 'API Call', status: 'success', data: 'fetch user' },
+            { icon: '⚙️', label: 'Process', status: 'warning', data: 'transform data' },
+            { icon: '💥', label: 'Error', status: 'error', data: 'undefined access' }
+        ];
+    } 
+    else if (code.includes('addEventListener') || code.includes('onclick')) {
+        // EVENT FLOW
+        flowSteps = [
+            { icon: '🎯', label: 'Event', status: 'success', data: 'user click' },
+            { icon: '⚙️', label: 'Handler', status: 'success', data: 'process event' },
+            { icon: '💾', label: 'Memory', status: 'warning', data: 'potential leak' },
+            { icon: '📤', label: 'Output', status: 'success', data: 'UI update' }
+        ];
+    }
+    else {
+        // DEFAULT EXECUTION FLOW
+        flowSteps = [
+            { icon: '🔍', label: 'Parse', status: 'success', data: 'code analysis' },
+            { icon: '⚙️', label: 'Execute', status: 'success', data: 'run logic' },
+            { icon: '📊', label: 'Result', status: 'success', data: 'output' },
+            { icon: '✅', label: 'Complete', status: 'success', data: 'finished' }
+        ];
+    }
+    
+    return { flowSteps };
+}
 
         function createVisualStep(codeLine, stepNumber) {
             const step = document.createElement('div');
