@@ -518,22 +518,47 @@ class Component {
             });
         });
 
-        // SIMPLE EXECUTE (like our working demo)
-        executeBtn.addEventListener('click', function() {
-            const code = codeInput.value;
-            
-            // Simple analysis based on content
-            let analysis;
-            if (code.includes('race') || code.includes('Race')) {
-                analysis = examples['race-condition'].analysis;
-            } else if (code.includes('memory') || code.includes('leak')) {
-                analysis = examples['memory-leak'].analysis;
-            } else {
-                analysis = examples['async-error'].analysis;
-            }
-            
-            analyzeCode(analysis);
-        });
+         // REPLACE THE executeBtn EVENT LISTENER:
+
+executeBtn.addEventListener('click', function() {
+    const code = codeInput.value.trim();
+    
+    if (!code) {
+        alert('Please paste some error code first!');
+        return;
+    }
+    
+    // SIMPLE PATTERN MATCHING FOR REAL ERROR ANALYSIS
+    let analysis;
+    
+    if (code.includes('userData.settings.preferences') || 
+        code.includes('Cannot read') || 
+        code.includes('TypeError') ||
+        code.includes('undefined')) {
+        analysis = examples['async-error'].analysis;
+    }
+    else if (code.includes('Promise.all') === false && 
+             (code.includes('Promise') || code.includes('setTimeout') || code.includes('then('))) {
+        analysis = examples['race-condition'].analysis;
+    }
+    else if (code.includes('addEventListener') || code.includes('removeEventListener') === false) {
+        analysis = examples['memory-leak'].analysis;
+    }
+    else {
+        // Default analysis for any error
+        analysis = {
+            path: [
+                { name: '🔍 Code Analysis', status: 'success' },
+                { name: '🎯 Error Detection', status: 'warning' },
+                { name: '💥 Error Found', status: 'error' }
+            ],
+            rootCause: 'Error detected in pasted code',
+            fix: 'Check the error stack trace for specific line numbers'
+        };
+    }
+    
+    analyzeCode(analysis);
+});
 
         // SIMPLE TIME TRAVEL (just show execution path)
         timeTravelBtn.addEventListener('click', function() {
