@@ -424,229 +424,226 @@ async function loadUserDashboard() {
         </div>
     </div>
 
-        <script>
+    <script>
     document.addEventListener('DOMContentLoaded', function() {
         const codeInput = document.getElementById('codeInput');
         const executeBtn = document.getElementById('executeBtn');
-        const timeTravelBtn = document.getElementById('timeTravelBtn');
-        const clearBtn = document.getElementById('clearBtn');
         const pipeline = document.getElementById('pipeline');
         const analysisResults = document.getElementById('analysisResults');
-        const demoLinks = document.querySelectorAll('.demo-link[data-example]');
 
-        // SIMPLE WORKING EXAMPLES (like our original demo)
-        const examples = {
-            'async-error': {
-                code: `// REAL BUGGY CODE FROM OUR GLYPH TESTING
-async function loadUserDashboard() {
-    const userId = getUserIdFromURL();
-    
-    try {
-        const userData = await fetchUserProfile(userId);
-        const preferences = userData.settings.preferences; // 🔥 BUG HERE
-        const dashboard = mergeDashboardData(userData, preferences);
-        renderDashboard(dashboard);
-    } catch (error) {
-        console.error('💥 Dashboard failed:', error);
-    }
-}`,
-                analysis: {
-                    path: [
-                        { name: '📥 User Login', status: 'success' },
-                        { name: '🌐 Fetch Profile', status: 'success' },
-                        { name: '⚙️ Access Settings', status: 'error' },
-                        { name: '💥 TypeError', status: 'error' }
-                    ],
-                    rootCause: 'userData.settings is undefined but code assumes it exists',
-                    fix: 'Add null check: const preferences = userData.settings?.preferences || {};'
-                }
-            },
-            'race-condition': {
-                code: `// Race condition example
-let user, profile;
+        // REMOVE the broken time-travel and demo buttons
+        document.querySelector('.time-travel-controls').style.display = 'none';
+        document.querySelector('.demo-links').style.display = 'none';
+        document.getElementById('timeTravelBtn').style.display = 'none';
+        document.getElementById('clearBtn').style.display = 'none';
 
-fetchUser().then(data => user = data);
-fetchProfile().then(data => profile = data);
-
-setTimeout(() => {
-    renderProfile(user, profile); // profile might be undefined
-}, 100);`,
-                analysis: {
-                    path: [
-                        { name: '🌐 Fetch User', status: 'success' },
-                        { name: '🌐 Fetch Profile', status: 'success' },
-                        { name: '⚡ Timeout', status: 'warning' },
-                        { name: '💥 Render Error', status: 'error' }
-                    ],
-                    rootCause: 'renderProfile called before fetchProfile completed',
-                    fix: 'Use Promise.all([fetchUser(), fetchProfile()])'
-                }
-            },
-            'memory-leak': {
-                code: `// Memory leak example
-class Component {
-    constructor() {
-        this.data = largeArray;
-        window.addEventListener('click', this.handleClick);
-    }
-    handleClick = () => {
-        process(this.data); // Never cleaned up
-    }
-}`,
-                analysis: {
-                    path: [
-                        { name: '🏠 Create Component', status: 'success' },
-                        { name: '🎯 Add Listener', status: 'warning' },
-                        { name: '🗑️ Destroy', status: 'warning' },
-                        { name: '💾 Memory Leak', status: 'error' }
-                    ],
-                    rootCause: 'Event listener not removed on destruction',
-                    fix: 'Add removeEventListener in cleanup method'
-                }
+        // REAL-TIME CODE EXECUTION AND VISUALIZATION
+        executeBtn.addEventListener('click', function() {
+            const code = codeInput.value.trim();
+            
+            if (!code) {
+                showError('Please paste JavaScript code to debug');
+                return;
             }
-        };
 
-        // SIMPLE DEMO BUTTONS (like our working demo)
-        demoLinks.forEach(link => {
-            link.addEventListener('click', function() {
-                const exampleType = this.getAttribute('data-example');
-                const example = examples[exampleType];
-                if (example) {
-                    codeInput.value = example.code;
-                    analyzeCode(example.analysis);
+            try {
+                // CLEAR previous results
+                pipeline.innerHTML = '';
+                analysisResults.innerHTML = '';
+
+                // SHOW EXECUTION VISUALLY
+                visualizeCodeExecution(code);
+                
+            } catch (error) {
+                showError('Error analyzing code: ' + error.message);
+            }
+        });
+
+        // REAL VISUAL EXECUTION - This is the Glyph vision
+        function visualizeCodeExecution(code) {
+            // Create visual execution container
+            const visualContainer = document.createElement('div');
+            visualContainer.className = 'visual-execution';
+            visualContainer.style.display = 'flex';
+            visualContainer.style.flexDirection = 'column';
+            visualContainer.style.gap = '10px';
+            visualContainer.style.margin = '20px 0';
+
+            // Parse code and create visual steps
+            const lines = code.split('\n').filter(line => line.trim());
+            
+            lines.forEach((line, index) => {
+                const step = createVisualStep(line, index);
+                visualContainer.appendChild(step);
+                
+                // Add connecting arrow (except for last line)
+                if (index < lines.length - 1) {
+                    const arrow = document.createElement('div');
+                    arrow.innerHTML = '↓';
+                    arrow.style.textAlign = 'center';
+                    arrow.style.color = '#4a6cf7';
+                    arrow.style.fontSize = '20px';
+                    visualContainer.appendChild(arrow);
                 }
             });
-        });
 
-         // REPLACE THE executeBtn EVENT LISTENER:
+            pipeline.appendChild(visualContainer);
 
-executeBtn.addEventListener('click', function() {
-    const code = codeInput.value.trim();
-    
-    if (!code) {
-        alert('Please paste some code or error first!');
-        return;
-    }
-    
-    console.log('🔍 Analyzing code:', code);
-    
-    // SMART CODE ANALYSIS
-    const analysis = analyzePastedCode(code);
-    analyzeCode(analysis);
-});
+            // Show live execution result
+            executeAndShowResult(code);
+        }
 
-// NEW FUNCTION: ACTUALLY ANALYZES THE PASTED CODE
-function analyzePastedCode(code) {
-    let path = [];
-    let rootCause = '';
-    let fix = '';
-    
-    // DETECT ERROR TYPE
-    if (code.includes('TypeError:') || code.includes('Cannot read') || code.includes('undefined')) {
-        // ASYNC/DATA ERROR
-        path = [
-            { name: '📥 Data Input', status: 'success' },
-            { name: '🌐 API Call', status: 'success' },
-            { name: '⚙️ Data Processing', status: 'error' },
-            { name: '💥 TypeError', status: 'error' }
-        ];
-        rootCause = 'Trying to access properties of undefined/null variable';
-        fix = 'Add null checks: variable?.property instead of variable.property';
-    }
-    else if (code.includes('fetch(') || code.includes('.then(') || code.includes('async') || code.includes('await')) {
-        // ASYNC/RACE CONDITION
-        path = [
-            { name: '🌐 API Call 1', status: 'success' },
-            { name: '🌐 API Call 2', status: 'success' },
-            { name: '⚡ Race Condition', status: 'warning' },
-            { name: '💥 Data Missing', status: 'error' }
-        ];
-        rootCause = 'Async operations completing in unexpected order';
-        fix = 'Use Promise.all() or proper async/await sequencing';
-    }
-    else if (code.includes('addEventListener') || code.includes('onclick') || code.includes('onload')) {
-        // MEMORY/EVENT ERROR
-        path = [
-            { name: '🏠 Component Create', status: 'success' },
-            { name: '🎯 Event Listener', status: 'warning' },
-            { name: '🗑️ Cleanup Missing', status: 'warning' },
-            { name: '💾 Memory Leak', status: 'error' }
-        ];
-        rootCause = 'Event listeners not properly cleaned up';
-        fix = 'Add removeEventListener in cleanup/destroy methods';
-    }
-    else if (code.includes('Error:') || code.includes('Exception') || code.includes('throw new')) {
-        // GENERAL ERROR
-        path = [
-            { name: '🔍 Code Execution', status: 'success' },
-            { name: '⚙️ Function Call', status: 'warning' },
-            { name: '💥 Error Thrown', status: 'error' }
-        ];
-        rootCause = 'Exception thrown during execution';
-        fix = 'Add try/catch blocks or fix the underlying logic error';
-    }
-    else {
-        // DEFAULT - SHOW CODE STRUCTURE
-        const lines = code.split('\n').length;
-        path = [
-            { name: '📝 Code Pasted', status: 'success' },
-            { name: `📊 ${lines} lines`, status: 'success' },
-            { name: '🔍 Needs Analysis', status: 'warning' },
-            { name: '💡 Add Error Details', status: 'warning' }
-        ];
-        rootCause = 'Code structure detected but no specific error pattern found';
-        fix = 'Paste actual error message or stack trace for detailed analysis';
-    }
-    
-    return { path, rootCause, fix };
-}
+        function createVisualStep(codeLine, stepNumber) {
+            const step = document.createElement('div');
+            step.className = 'visual-step';
+            step.style.display = 'flex';
+            step.style.alignItems = 'center';
+            step.style.gap = '15px';
+            step.style.padding = '15px';
+            step.style.background = '#1e293b';
+            step.style.borderRadius = '8px';
+            step.style.border = '2px solid #334155';
 
-        // SIMPLE TIME TRAVEL (just show execution path)
-        timeTravelBtn.addEventListener('click', function() {
-            const code = codeInput.value;
-            if (!code.trim()) return;
-            
-            // Show simple execution path
-            const analysis = examples['async-error'].analysis;
-            analyzeCode(analysis);
-        });
+            // Step number
+            const stepNum = document.createElement('div');
+            stepNum.innerHTML = '🔮';
+            stepNum.style.fontSize = '1.2rem';
 
-        // SIMPLE CLEAR
-        clearBtn.addEventListener('click', function() {
-            codeInput.value = '';
-            pipeline.innerHTML = '<div style="text-align: center; padding: 40px; color: #666;">No execution trace yet...</div>';
-            analysisResults.innerHTML = '';
-        });
+            // Code preview
+            const codePreview = document.createElement('div');
+            codePreview.innerHTML = `<code style="color: #f8fafc; font-family: monospace;">${codeLine.trim()}</code>`;
+            codePreview.style.flex = '1';
 
-        // SIMPLE ANALYSIS FUNCTION (like our working demo)
-        function analyzeCode(analysis) {
-            // Show execution path
-            pipeline.innerHTML = analysis.path.map(step => `
-                <div class="pipeline-step ${step.status}">
-                    <div class="step-header">
-                        <div class="step-title">${step.name}</div>
-                        <div class="step-status status-${step.status}">${step.status.toUpperCase()}</div>
+            // Execution status (will update live)
+            const status = document.createElement('div');
+            status.innerHTML = '⏳...';
+            status.className = 'step-status';
+            status.style.padding = '5px 10px';
+            status.style.borderRadius = '4px';
+            status.style.background = '#f59e0b';
+            status.style.color = 'white';
+            status.style.fontSize = '0.8rem';
+
+            step.appendChild(stepNum);
+            step.appendChild(codePreview);
+            step.appendChild(status);
+
+            return step;
+        }
+
+        function executeAndShowResult(code) {
+            try {
+                // Create a safe execution environment
+                const safeCode = code.replace(/console\.log/g, 'safeLog');
+                
+                // Capture console output
+                let output = '';
+                const safeLog = (...args) => {
+                    output += args.join(' ') + '\n';
+                };
+
+                // Execute the code
+                const result = new Function('safeLog', `
+                    try {
+                        ${safeCode}
+                        return { success: true, output: output };
+                    } catch (error) {
+                        return { success: false, error: error.message, output: output };
+                    }
+                `)(safeLog);
+
+                // Update visual steps with results
+                updateVisualSteps(result);
+
+                // Show analysis
+                showExecutionAnalysis(result, code);
+
+            } catch (error) {
+                showError('Execution failed: ' + error.message);
+            }
+        }
+
+        function updateVisualSteps(result) {
+            const steps = document.querySelectorAll('.visual-step');
+            steps.forEach((step, index) => {
+                const status = step.querySelector('.step-status');
+                if (result.success) {
+                    status.innerHTML = '✅';
+                    status.style.background = '#10b981';
+                } else {
+                    if (index === steps.length - 1) {
+                        status.innerHTML = '💥';
+                        status.style.background = '#ef4444';
+                    } else {
+                        status.innerHTML = '✅';
+                        status.style.background = '#10b981';
+                    }
+                }
+            });
+        }
+
+        function showExecutionAnalysis(result, originalCode) {
+            let analysisHTML = '';
+
+            if (result.success) {
+                analysisHTML = `
+                    <div class="fix-suggestion">
+                        <div class="root-cause-title" style="color: var(--success);">✅ Execution Successful</div>
+                        <div><strong>Output:</strong></div>
+                        <div class="step-data">${result.output || 'No output'}</div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            } else {
+                analysisHTML = `
+                    <div class="root-cause">
+                        <div class="root-cause-title">💥 Execution Error</div>
+                        <div><strong>Error:</strong> ${result.error}</div>
+                    </div>
+                    <div class="fix-suggestion">
+                        <div class="root-cause-title" style="color: var(--success);">🔧 Glyph Analysis</div>
+                        <div>${analyzeErrorPattern(result.error, originalCode)}</div>
+                    </div>
+                    ${result.output ? `
+                    <div class="step-data" style="margin-top: 10px;">
+                        <strong>Console output before error:</strong><br>
+                        ${result.output}
+                    </div>
+                    ` : ''}
+                `;
+            }
 
-            // Show analysis
+            analysisResults.innerHTML = analysisHTML;
+        }
+
+        function analyzeErrorPattern(error, code) {
+            if (error.includes('undefined') || error.includes('Cannot read')) {
+                return 'Null/undefined access detected. Use optional chaining: <code>variable?.property</code>';
+            }
+            if (error.includes('is not defined')) {
+                return 'Undefined variable. Check variable names and scope.';
+            }
+            if (error.includes('Unexpected token')) {
+                return 'Syntax error. Check for missing brackets, parentheses, or semicolons.';
+            }
+            return 'Review the code logic and variable assignments.';
+        }
+
+        function showError(message) {
             analysisResults.innerHTML = `
                 <div class="root-cause">
-                    <div class="root-cause-title">🔍 Root Cause Identified</div>
-                    <div>${analysis.rootCause}</div>
-                </div>
-                <div class="fix-suggestion">
-                    <div class="root-cause-title" style="color: var(--success);">💡 Suggested Fix</div>
-                    <div><code>${analysis.fix}</code></div>
+                    <div class="root-cause-title">❌ Error</div>
+                    <div>${message}</div>
                 </div>
             `;
         }
 
-        // INITIAL DEMO
-        analyzeCode(examples['async-error'].analysis);
+        // INITIAL DEMO CODE
+        codeInput.value = `let user = { name: "John" };
+console.log("User:", user.name);
+console.log(user.age); // This might cause issues
+console.log(user.age.toString()); // Potential error`;
     });
-</script>
+    </script>
 
 </body>
 </html>
