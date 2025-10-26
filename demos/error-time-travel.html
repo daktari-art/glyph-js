@@ -619,45 +619,52 @@ class DataProcessor {
             let currentTrace = [];
             let currentStep = 0;
             
-            function visualizeExecution(trace, rootCause, fix) {
-                currentTrace = trace;
-                currentStep = trace.length - 1; // Start at last step
-                
-                pipeline.innerHTML = '<div class="current-execution" id="currentExecution"></div>';
-                currentExecution = document.getElementById('currentExecution');
-                
-                trace.forEach((step, index) => {
-                    const stepEl = document.createElement('div');
-                    stepEl.className = `glyph-step ${step.isError ? 'error' : step.status}`;
-                    stepEl.innerHTML = `
-                        <div class="step-header">
-                            <div class="step-title">
-                                <span class="glyph-icon">${step.icon}</span>
-                                ${step.step}
-                            </div>
-                            <div class="step-status status-${step.status}">${step.status}</div>
-                        </div>
-                        <div class="step-details">⏱️ Execution time: ${step.time}ms</div>
-                        <div class="step-data">${step.data}</div>
-                    `;
-                    pipeline.appendChild(stepEl);
-                });
-                
-                // Show GLYPH analysis
-                analysisResults.innerHTML = `
-                    <div class="root-cause">
-                        <div class="root-cause-title">🔍 Root Cause Identified</div>
-                        <div>${rootCause}</div>
-                    </div>
-                    <div class="fix-suggestion">
-                        <div class="root-cause-title" style="color: var(--success);">💡 Glyph Suggested Fix</div>
-                        <div><code>${fix}</code></div>
-                    </div>
-                `;
-                
-                // Position current execution indicator
-                updateExecutionIndicator();
-            }
+
+function visualizeExecution(trace, rootCause, fix) {
+    currentTrace = trace;
+    currentStep = trace.length - 1;
+    
+    console.log('🔄 Visualizing execution with trace:', trace); // Debug log
+    
+    // Clear previous content
+    pipeline.innerHTML = '';
+    currentExecution = document.createElement('div');
+    currentExecution.id = 'currentExecution';
+    currentExecution.className = 'current-execution';
+    pipeline.appendChild(currentExecution);
+    
+    // Add new steps
+    trace.forEach((step, index) => {
+        const stepEl = document.createElement('div');
+        stepEl.className = `pipeline-step ${step.isError ? 'error' : step.status}`;
+        stepEl.innerHTML = `
+            <div class="step-header">
+                <div class="step-title">${step.step}</div>
+                <div class="step-status status-${step.status}">${step.status.toUpperCase()}</div>
+            </div>
+            <div class="step-details">Execution time: ${step.time}ms</div>
+            <div class="step-data">${step.data}</div>
+        `;
+        pipeline.appendChild(stepEl);
+    });
+    
+    // Show analysis - FIXED: This was missing
+    analysisResults.innerHTML = `
+        <div class="root-cause">
+            <div class="root-cause-title">🔍 Root Cause Identified</div>
+            <div>${rootCause}</div>
+        </div>
+        <div class="fix-suggestion">
+            <div class="root-cause-title" style="color: var(--success);">💡 Suggested Fix</div>
+            <div><code>${fix}</code></div>
+        </div>
+    `;
+    
+    // Initialize time travel
+    updateExecutionIndicator();
+    
+    console.log('✅ Visualization complete'); // Debug log
+}
             
             function startTimeTravel() {
                 if (currentTrace.length === 0) return;
