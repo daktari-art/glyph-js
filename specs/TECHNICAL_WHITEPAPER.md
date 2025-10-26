@@ -1,4 +1,3 @@
-
 # Glyph.js Technical Whitepaper
 
 ## Problem Space
