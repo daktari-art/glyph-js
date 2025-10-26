@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Glyph.js Demo - Test Website</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 600px; 
+            margin: 40px auto; 
+            padding: 20px;
+        }
+        button { 
+            padding: 10px 15px; 
+            margin: 5px; 
+            cursor: pointer;
+        }
+        .log { 
+            background: #f5f5f5; 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-left: 4px solid #007acc;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Glyph.js Test Website</h1>
+    <p>This website is for testing the Glyph.js debugger extension.</p>
+    
+    <div>
+        <button onclick="testConsoleLog()">Test console.log</button>
+        <button onclick="testAsyncFunction()">Test Async Function</button>
+        <button onclick="testError()">Test Error</button>
+    </div>
+    
+    <div id="output" class="log">
+        Output will appear here...
+    </div>
+
+    <script>
+        function testConsoleLog() {
+            console.log('🔮 Glyph intercepted this console.log!', { data: 'test', number: 42 });
+            document.getElementById('output').innerHTML = 'console.log was called - check Glyph devtools!';
+        }
+
+        function testAsyncFunction() {
+            document.getElementById('output').innerHTML = 'Async function started...';
+            setTimeout(() => {
+                console.log('⏰ Async timeout completed!');
+                document.getElementById('output').innerHTML = 'Async function completed!';
+            }, 1000);
+        }
+
+        function testError() {
+            try {
+                throw new Error('💥 This is a test error for Glyph!');
+            } catch (error) {
+                console.error('❌ Error caught:', error);
+                document.getElementById('output').innerHTML = 'Error was thrown and caught!';
+            }
+        }
+
+        // Some automatic tests
+        console.log('🚀 Demo website loaded successfully!');
+        console.warn('⚠️ This is a warning message');
+    </script>
+</body>
+</html>
