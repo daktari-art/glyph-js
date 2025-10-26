@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Glyph.js Debugger",
+  "version": "0.1.0",
+  "description": "Visual JavaScript debugging",
+  "devtools_page": "devtools.html",
+  "content_scripts": [{
+    "matches": ["<all_urls>"],
+    "js": ["content-script.js"],
+    "run_at": "document_start"
+  }],
+  "permissions": ["activeTab"],
+  "host_permissions": ["<all_urls>"]
+}
