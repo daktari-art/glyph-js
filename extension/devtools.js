@@ -390,27 +390,136 @@ document.addEventListener('DOMContentLoaded', () => {
     new GlyphDevTools();
 });
 
-// ADD TO EXISTING FILE - Build toward visual editor
-class GlyphDevTools {
-    setupLanguageFeatures() {
-        // Add "Export as Glyph Program" button
-        // Add "Create Glyph from Selection" 
-        // Add "Glyph Playground" mode
+
+    // NEW: Enhanced node creation with inspection
+    createNodeElement(nodeData) {
+        const node = document.createElement('div');
+        node.className = `node node-${this.getNodeTypeClass(nodeData.type)}`;
+        node.id = nodeData.id;
+        node.innerHTML = `
+            <div class="glyph-icon">${nodeData.type}</div>
+            <div class="node-label">${nodeData.label}</div>
+        `;
         
-        // These become the Glyph Language IDE features
+        // Add source context to tooltip
+        if (nodeData.properties?.source) {
+            const source = nodeData.properties.source;
+            node.title = `${source.fileName}:${source.lineNumber}:${source.columnNumber}`;
+        }
+
+        // Make draggable
+        this.makeDraggable(node);
+        
+        // Add click handler for inspection
+        node.addEventListener('click', (e) => {
+            this.inspectNode(nodeData);
+            e.stopPropagation();
+        });
+
+        return node;
     }
-    
-    exportAsGlyphProgram(traceData) {
-        // Enhanced export that creates executable .glyph files
-        return {
-            // Uses same structure as Glyph Language programs
-            version: "1.0",
-            program: "converted-from-js",
-            nodes: this.enhanceNodesWithSemantics(traceData.nodes),
-            connections: traceData.connections,
-            // Additional compiler-ready data
-            entryPoints: this.identifyEntryPoints(),
-            dataTypes: this.inferDataTypes()
-        };
+
+    // NEW: Node inspection panel
+    inspectNode(nodeData) {
+        // Create or show inspection panel
+        let inspector = document.getElementById('glyphInspector');
+        if (!inspector) {
+            inspector = this.createInspectorPanel();
+        }
+
+        this.populateInspector(inspector, nodeData);
+        inspector.style.display = 'block';
     }
+
+    createInspectorPanel() {
+        const inspector = document.createElement('div');
+        inspector.id = 'glyphInspector';
+        inspector.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            background: #2d2d2d;
+            border: 2px solid #404040;
+            border-radius: 8px;
+            padding: 20px;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            display: none;
+        `;
+
+        inspector.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;">Node Inspection</h3>
+                <button id="closeInspector" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;">×</button>
+            </div>
+            <div id="inspectorContent"></div>
+        `;
+
+        document.body.appendChild(inspector);
+        
+        // Close button
+        document.getElementById('closeInspector').addEventListener('click', () => {
+            inspector.style.display = 'none';
+        });
+
+        return inspector;
+    }
+
+    populateInspector(inspector, nodeData) {
+        const content = document.getElementById('inspectorContent');
+        
+        let html = `
+            <div style="margin-bottom: 15px;">
+                <strong>Type:</strong> ${nodeData.type}<br>
+                <strong>Label:</strong> ${nodeData.label}<br>
+                <strong>Time:</strong> ${new Date(nodeData.timestamp).toLocaleTimeString()}
+            </div>
+        `;
+
+        // Source information
+        if (nodeData.properties?.source) {
+            const source = nodeData.properties.source;
+            html += `
+                <div style="margin-bottom: 15px; padding: 10px; background: #404040; border-radius: 4px;">
+                    <strong>Source Location:</strong><br>
+                    File: ${source.fileName}<br>
+                    Line: ${source.lineNumber}<br>
+                    Function: ${source.functionName}
+                </div>
+            `;
+        }
+
+        // Variable data
+        if (nodeData.properties?.executionId && window.glyphStateManager) {
+            const snapshot = window.glyphStateManager.variableSnapshots.get(nodeData.properties.executionId);
+            if (snapshot) {
+                html += `
+                    <div style="margin-bottom: 15px;">
+                        <strong>Variables:</strong>
+                        <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; font-size: 12px; max-height: 200px; overflow: auto;">
+${JSON.stringify(snapshot.variables, null, 2)}
+                        </pre>
+                    </div>
+                `;
+            }
+        }
+
+        // Node properties
+        if (nodeData.properties) {
+            html += `
+                <div style="margin-bottom: 15px;">
+                    <strong>Properties:</strong>
+                    <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; font-size: 12px; max-height: 150px; overflow: auto;">
+${JSON.stringify(nodeData.properties, null, 2)}
+                    </pre>
+                </div>
+            `;
+        }
+
+        content.innerHTML = html;
+    }
+
+    // ... rest of existing code ...
 }
