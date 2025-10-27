@@ -399,3 +399,24 @@
     
     console.log('🔮 Glyph Language Tracer initialized - Visualizing JavaScript execution as data flow');
 })();
+
+// ADD TO EXISTING FILE - Capture language foundation data
+class GlyphLanguageTracer {
+    captureExecutionContext(execution) {
+        return {
+            // For debugger:
+            source: this.getSourceLocation(),
+            variables: this.captureVariableState(),
+            // For language compiler:
+            dataFlow: this.analyzeDataDependencies(), // ← NEW
+            nodeSemantics: this.inferNodeMeaning(),   // ← NEW
+            executionPattern: this.detectPattern()    // ← NEW
+        };
+    }
+    
+    // These analyses become Glyph Language's type inference
+    inferNodeMeaning() {
+        // Pattern: [○] → [▷] → [○] = Data transformation
+        // Becomes Glyph's semantic understanding
+    }
+}
