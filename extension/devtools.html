@@ -1,420 +1,292 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Glyph.js</title>
+    <meta charset="utf-8">
+    <title>Glyph Language DevTools</title>
     <style>
-        :root {
-            --primary: #4a6cf7;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-            --dark: #1e293b;
-            --light: #f8fafc;
-            --gray: #64748b;
-        }
-        
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         body {
-            background: #0f172a;
-            color: var(--light);
-            padding: 0;
-            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
         }
         
         .container {
-            padding: 15px;
-            max-height: 100vh;
-            overflow-y: auto;
+            display: flex;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            width: 300px;
+            background: #2d2d2d;
+            border-right: 1px solid #404040;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #1a1a1a;
         }
         
         .header {
-            background: var(--dark);
             padding: 15px;
-            border-bottom: 1px solid #334155;
-            margin: -15px -15px 15px -15px;
-        }
-        
-        h1 {
-            font-size: 1.4rem;
-            margin-bottom: 5px;
-            background: linear-gradient(90deg, var(--primary), var(--success));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        
-        .status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.9rem;
-            color: var(--gray);
-        }
-        
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--success);
+            background: #2d2d2d;
+            border-bottom: 1px solid #404040;
         }
         
         .controls {
-            display: flex;
-            gap: 8px;
-            margin: 15px 0;
+            padding: 15px;
+            border-bottom: 1px solid #404040;
         }
         
-        button {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 6px;
-            background: var(--primary);
-            color: white;
-            cursor: pointer;
-            font-size: 0.8rem;
+        .glyph-palette {
+            padding: 15px;
+            border-bottom: 1px solid #404040;
+            flex-shrink: 0;
         }
         
-        button:hover {
-            opacity: 0.9;
-        }
-        
-        .stats {
+        .palette-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 10px;
-            margin: 15px 0;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: 10px;
         }
         
-        .stat-card {
-            background: var(--dark);
-            padding: 10px;
-            border-radius: 6px;
+        .glyph-item {
+            padding: 8px;
             text-align: center;
+            background: #404040;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 18px;
         }
         
-        .stat-number {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: var(--primary);
+        .glyph-item:hover {
+            background: #505050;
         }
         
-        .stat-label {
-            font-size: 0.7rem;
-            color: var(--gray);
-            margin-top: 2px;
+        .execution-graph {
+            flex: 1;
+            position: relative;
+            overflow: auto;
+            background: 
+                radial-gradient(circle at 20% 80%, #2a2a2a 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, #2a2a2a 0%, transparent 50%);
         }
         
-        .execution-list {
-            margin-top: 15px;
-        }
-        
-        .execution-item {
-            background: var(--dark);
+        .node {
+            position: absolute;
+            min-width: 120px;
             padding: 10px;
-            margin: 8px 0;
-            border-radius: 6px;
-            border-left: 3px solid var(--primary);
-            font-size: 0.8rem;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 20px;
+            cursor: move;
+            user-select: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
         }
         
-        .execution-item.error {
-            border-left-color: var(--error);
-            background: rgba(239, 68, 68, 0.1);
+        .node:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
         }
         
-        .execution-item.success {
-            border-left-color: var(--success);
+        .node-data { background: #2e7d32; border-color: #4caf50; }
+        .node-async { background: #1565c0; border-color: #1976d2; }
+        .node-function { background: #6a1b9a; border-color: #8e24aa; }
+        .node-error { background: #c62828; border-color: #f44336; }
+        .node-output { background: #ff6f00; border-color: #ff9800; }
+        .node-input { background: #00695c; border-color: #009688; }
+        
+        .node-label {
+            font-size: 12px;
+            margin-top: 5px;
+            word-break: break-word;
+            color: rgba(255, 255, 255, 0.9);
         }
         
-        .execution-item.warning {
-            border-left-color: var(--warning);
+        .connection {
+            stroke: #64b5f6;
+            stroke-width: 2;
+            marker-end: url(#arrowhead);
+            opacity: 0.7;
         }
         
-        .execution-header {
+        .connection-error {
+            stroke: #f44336;
+            stroke-dasharray: 5,5;
+        }
+        
+        .btn {
+            padding: 8px 16px;
+            background: #1976d2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        
+        .btn:hover {
+            background: #1565c0;
+        }
+        
+        .btn-danger {
+            background: #d32f2f;
+        }
+        
+        .btn-danger:hover {
+            background: #c62828;
+        }
+        
+        .btn-success {
+            background: #388e3c;
+        }
+        
+        .btn-success:hover {
+            background: #2e7d32;
+        }
+        
+        .status-bar {
+            padding: 8px 15px;
+            background: #2d2d2d;
+            border-top: 1px solid #404040;
+            font-size: 12px;
+            color: #b0b0b0;
+        }
+        
+        .legend {
+            padding: 15px;
+            font-size: 12px;
+        }
+        
+        .legend-item {
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
+            align-items: center;
+            margin-bottom: 8px;
         }
         
-        .execution-type {
-            font-weight: bold;
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            margin-right: 8px;
         }
         
-        .execution-time {
-            color: var(--gray);
-            font-size: 0.7rem;
-        }
-        
-        .execution-data {
-            color: var(--gray);
-            font-size: 0.7rem;
-            word-break: break-all;
+        #glyphCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
         }
         
         .empty-state {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             text-align: center;
-            padding: 40px 20px;
-            color: var(--gray);
+            color: #666;
         }
         
-        .framework-section {
-            background: var(--dark);
-            padding: 10px;
-            border-radius: 6px;
-            margin: 10px 0;
-        }
-        
-        .framework-title {
-            font-weight: bold;
-            margin-bottom: 5px;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+        .empty-state h3 {
+            margin-bottom: 10px;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Glyph.js</h1>
-            <div class="status">
-                <div class="status-dot" id="statusDot"></div>
-                <span id="statusText">Tracing active</span>
+        <div class="sidebar">
+            <div class="header">
+                <h2>🔮 Glyph Language</h2>
+                <p style="font-size: 12px; color: #b0b0b0; margin-top: 5px;">
+                    Visual Data Flow Programming
+                </p>
+            </div>
+            
+            <div class="controls">
+                <button class="btn" id="startTracing">▶ Start Tracing</button>
+                <button class="btn btn-danger" id="stopTracing">⏹ Stop</button>
+                <button class="btn btn-success" id="clearGraph">🗑 Clear</button>
+                <button class="btn" id="exportGlyph">💾 Export .glyph</button>
+            </div>
+            
+            <div class="glyph-palette">
+                <h4>Glyph Palette</h4>
+                <div class="palette-grid">
+                    <div class="glyph-item" data-type="○" title="DATA_NODE">○</div>
+                    <div class="glyph-item" data-type="□" title="TEXT_NODE">□</div>
+                    <div class="glyph-item" data-type="△" title="LIST_NODE">△</div>
+                    <div class="glyph-item" data-type="◇" title="BOOL_NODE">◇</div>
+                    <div class="glyph-item" data-type="▷" title="FUNCTION_NODE">▷</div>
+                    <div class="glyph-item" data-type="⟳" title="LOOP_NODE">⟳</div>
+                    <div class="glyph-item" data-type="◯" title="CONDITION_NODE">◯</div>
+                    <div class="glyph-item" data-type="⤶" title="OUTPUT_NODE">⤶</div>
+                    <div class="glyph-item" data-type="⚡" title="ERROR_NODE">⚡</div>
+                    <div class="glyph-item" data-type="🔄" title="ASYNC_NODE">🔄</div>
+                    <div class="glyph-item" data-type="⤵" title="INPUT_NODE">⤵</div>
+                    <div class="glyph-item" data-type="⤴" title="RETURN_NODE">⤴</div>
+                </div>
+            </div>
+            
+            <div class="legend">
+                <h4>Node Types</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2e7d32;"></div>
+                    <span>Data/Value Nodes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #1565c0;"></div>
+                    <span>Async Operations</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #6a1b9a;"></div>
+                    <span>Functions/Processing</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #c62828;"></div>
+                    <span>Errors/Exceptions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff6f00;"></div>
+                    <span>Input/Output</span>
+                </div>
+            </div>
+            
+            <div class="status-bar">
+                <div id="status">Ready to trace JavaScript execution</div>
+                <div id="stats" style="margin-top: 5px;"></div>
             </div>
         </div>
         
-        <div class="controls">
-            <button id="clearBtn">Clear Traces</button>
-            <button id="exportBtn">Export</button>
-        </div>
-        
-        <div class="stats">
-            <div class="stat-card">
-                <div class="stat-number" id="totalSteps">0</div>
-                <div class="stat-label">Total Steps</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="errorCount">0</div>
-                <div class="stat-label">Errors</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number" id="warningCount">0</div>
-                <div class="stat-label">Warnings</div>
-            </div>
-        </div>
-        
-        <div id="frameworkInfo"></div>
-        
-        <div class="execution-list" id="executionList">
-            <div class="empty-state">
-                Waiting for execution data...
-                <br><small>Interact with the page to see traces</small>
+        <div class="main-content">
+            <div class="execution-graph" id="executionGraph">
+                <svg id="glyphCanvas"></svg>
+                <div class="empty-state" id="emptyState">
+                    <h3>No Execution Data</h3>
+                    <p>Start tracing to see JavaScript execution visualized as Glyph data flow</p>
+                </div>
             </div>
         </div>
     </div>
 
-    <script>
-        class GlyphPanel {
-            constructor() {
-                this.traceData = [];
-                this.stats = {
-                    totalSteps: 0,
-                    errorCount: 0,
-                    warningCount: 0
-                };
-                
-                this.init();
-            }
-            
-            init() {
-                this.setupEventListeners();
-                this.setupMessageHandlers();
-                this.updateUI();
-            }
-            
-            setupEventListeners() {
-                document.getElementById('clearBtn').addEventListener('click', () => {
-                    this.traceData = [];
-                    this.updateStats();
-                    this.updateExecutionList();
-                });
-                
-                document.getElementById('exportBtn').addEventListener('click', () => {
-                    this.exportData();
-                });
-            }
-            
-            setupMessageHandlers() {
-                window.addEventListener('message', (event) => {
-                    if (event.data.type?.startsWith('GLYPH_')) {
-                        this.handleMessage(event.data);
-                    }
-                });
-            }
-            
-            handleMessage(message) {
-                switch (message.type) {
-                    case 'GLYPH_TRACE_UPDATE':
-                        this.handleTraceUpdate(message.data);
-                        break;
-                    case 'GLYPH_INITIAL_STATE':
-                        this.handleInitialState(message.data);
-                        break;
-                    case 'GLYPH_TRACING_STARTED':
-                        this.updateStatus('Tracing active', 'var(--success)');
-                        break;
-                    case 'GLYPH_TRACING_ERROR':
-                        this.updateStatus('Tracing error', 'var(--error)');
-                        break;
-                }
-            }
-            
-            handleTraceUpdate(data) {
-                this.traceData.unshift(data);
-                
-                if (this.traceData.length > 50) {
-                    this.traceData = this.traceData.slice(0, 50);
-                }
-                
-                this.updateStats();
-                this.updateExecutionList();
-                
-                if (data.type.includes('React')) {
-                    this.updateFrameworkInfo('react', data);
-                } else if (data.type.includes('Vue')) {
-                    this.updateFrameworkInfo('vue', data);
-                } else if (data.type.includes('Angular')) {
-                    this.updateFrameworkInfo('angular', data);
-                }
-            }
-            
-            handleInitialState(data) {
-                this.traceData = data.traceData || [];
-                this.updateStats();
-                this.updateExecutionList();
-            }
-            
-            updateStats() {
-                this.stats.totalSteps = this.traceData.length;
-                this.stats.errorCount = this.traceData.filter(t => t.status === 'error').length;
-                this.stats.warningCount = this.traceData.filter(t => t.type.includes('Warning')).length;
-                
-                document.getElementById('totalSteps').textContent = this.stats.totalSteps;
-                document.getElementById('errorCount').textContent = this.stats.errorCount;
-                document.getElementById('warningCount').textContent = this.stats.warningCount;
-            }
-            
-            updateExecutionList() {
-                const container = document.getElementById('executionList');
-                
-                if (this.traceData.length === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            Waiting for execution data...
-                            <br><small>Interact with the page to see traces</small>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                container.innerHTML = this.traceData.map(item => `
-                    <div class="execution-item ${item.status === 'error' ? 'error' : item.status === 'success' ? 'success' : ''}">
-                        <div class="execution-header">
-                            <span class="execution-type">${item.type}</span>
-                            <span class="execution-time">${this.formatTime(item.timestamp)}</span>
-                        </div>
-                        <div class="execution-data">
-                            ${this.formatData(item.data)}
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            updateFrameworkInfo(framework, data) {
-                let frameworkInfo = document.getElementById('frameworkInfo');
-                if (!frameworkInfo) {
-                    frameworkInfo = document.createElement('div');
-                    frameworkInfo.id = 'frameworkInfo';
-                    document.querySelector('.stats').after(frameworkInfo);
-                }
-                
-                const icon = framework === 'react' ? '⚛️' : framework === 'vue' ? '🟢' : '🅰️';
-                const name = framework === 'react' ? 'React' : framework === 'vue' ? 'Vue.js' : 'Angular';
-                
-                frameworkInfo.innerHTML = `
-                    <div class="framework-section">
-                        <div class="framework-title">
-                            ${icon} ${name} Detected
-                        </div>
-                        <div class="execution-data">
-                            ${data.data?.component || data.data?.version || 'Active'}
-                        </div>
-                    </div>
-                `;
-            }
-            
-            updateStatus(text, color) {
-                document.getElementById('statusText').textContent = text;
-                document.getElementById('statusDot').style.background = color;
-            }
-            
-            formatTime(timestamp) {
-                const now = Date.now();
-                const diff = now - timestamp;
-                
-                if (diff < 1000) return 'now';
-                if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`;
-                return new Date(timestamp).toLocaleTimeString();
-            }
-            
-            formatData(data) {
-                if (!data) return '';
-                
-                return Object.entries(data)
-                    .map(([key, value]) => {
-                        if (key === 'stack') return '';
-                        if (typeof value === 'object') return `${key}: object`;
-                        return `${key}: ${value}`;
-                    })
-                    .filter(Boolean)
-                    .join(' | ');
-            }
-            
-            exportData() {
-                const exportData = {
-                    version: '1.0',
-                    exportedAt: new Date().toISOString(),
-                    traces: this.traceData,
-                    stats: this.stats
-                };
-                
-                const dataStr = JSON.stringify(exportData, null, 2);
-                const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                
-                const url = URL.createObjectURL(dataBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `glyph-trace-${Date.now()}.json`;
-                a.click();
-                
-                URL.revokeObjectURL(url);
-            }
-            
-            updateUI() {
-                this.updateStats();
-                this.updateExecutionList();
-            }
-        }
-        
-        document.addEventListener('DOMContentLoaded', () => {
-            new GlyphPanel();
-        });
-    </script>
+    <script src="devtools.js"></script>
 </body>
 </html>
