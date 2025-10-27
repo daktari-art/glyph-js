@@ -23,7 +23,10 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content-script.js"],
+      "js": [
+        "runtime/state-manager.js",  // ← ADD THIS FIRST
+        "content-script.js"
+      ],
       "run_at": "document_start"
     }
   ],
@@ -31,9 +34,5 @@
   "web_accessible_resources": [{
     "resources": ["glyph-runtime.js"],
     "matches": ["<all_urls>"]
-  }],
-  
-  "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
-  }
+  }]
 }
