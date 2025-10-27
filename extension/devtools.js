@@ -389,3 +389,28 @@ class GlyphDevTools {
 document.addEventListener('DOMContentLoaded', () => {
     new GlyphDevTools();
 });
+
+// ADD TO EXISTING FILE - Build toward visual editor
+class GlyphDevTools {
+    setupLanguageFeatures() {
+        // Add "Export as Glyph Program" button
+        // Add "Create Glyph from Selection" 
+        // Add "Glyph Playground" mode
+        
+        // These become the Glyph Language IDE features
+    }
+    
+    exportAsGlyphProgram(traceData) {
+        // Enhanced export that creates executable .glyph files
+        return {
+            // Uses same structure as Glyph Language programs
+            version: "1.0",
+            program: "converted-from-js",
+            nodes: this.enhanceNodesWithSemantics(traceData.nodes),
+            connections: traceData.connections,
+            // Additional compiler-ready data
+            entryPoints: this.identifyEntryPoints(),
+            dataTypes: this.inferDataTypes()
+        };
+    }
+}
