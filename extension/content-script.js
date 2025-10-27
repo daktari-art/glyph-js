@@ -1,4 +1,4 @@
-// ENHANCED GLYPH TRACER - PRODUCTION READY
+// glyph-js/extension/content-script.js
 class GlyphTracer {
     constructor() {
         this.executionFlow = [];
@@ -16,7 +16,6 @@ class GlyphTracer {
     }
 
     init() {
-        // Auto-start when injected into page
         this.startTracing();
         this.setupMessageListener();
     }
@@ -31,12 +30,12 @@ class GlyphTracer {
             
             this.interceptCoreAPIs();
             this.wrapAsyncOperations();
-            this.injectFrameworkTracers(); // ← ENHANCED: Proper injection
+            this.injectFrameworkTracers();
             this.setupPerformanceMonitoring();
             
             this.recordStep('🚀 Glyph Tracing Started', { 
                 url: window.location.href,
-                userAgent: navigator.userAgent 
+                userAgent: navigator.userAgent.substring(0, 100)
             });
             
             console.log('🔮 Glyph.js: Execution tracing started');
@@ -45,77 +44,35 @@ class GlyphTracer {
         }
     }
 
-    // === NEW: PROPER FRAMEWORK INJECTION ===
     injectFrameworkTracers() {
-        this.injectReactTracer();
-        this.injectVueTracer();
-        this.injectAngularTracer();
+        this.injectScript(this.getReactTracerCode());
+        this.injectScript(this.getVueTracerCode());
+        this.injectScript(this.getAngularTracerCode());
     }
 
-    injectReactTracer() {
-        const reactTracerCode = `
+    getReactTracerCode() {
+        return `
             (function() {
                 if (typeof window !== 'undefined' && window.React) {
-                    console.log('🔮 Glyph: Injecting React tracer...');
+                    console.log('🔮 Glyph: React detected, injecting tracer...');
                     
-                    // Store original methods
-                    const originalUseState = React.useState;
-                    const originalUseEffect = React.useEffect;
-                    const originalUseMemo = React.useMemo;
                     const originalCreateElement = React.createElement;
+                    let renderCount = 0;
                     
-                    // Wrap useState
-                    React.useState = function(initialState) {
-                        const [state, setState] = originalUseState.call(this, initialState);
-                        
-                        const wrappedSetState = (newState) => {
-                            // Send state change to Glyph
-                            window.postMessage({
-                                type: 'GLYPH_REACT_STATE_UPDATE',
-                                data: {
-                                    hook: 'useState',
-                                    previous: state,
-                                    next: newState,
-                                    stack: new Error().stack,
-                                    timestamp: Date.now()
-                                }
-                            }, '*');
-                            return setState(newState);
-                        };
-                        
-                        return [state, wrappedSetState];
-                    };
-                    
-                    // Wrap useEffect
-                    React.useEffect = function(effect, deps) {
-                        const componentName = this?.type?.displayName || this?.type?.name || 'Unknown';
-                        const effectId = Math.random().toString(36).substr(2, 9);
-                        
-                        window.postMessage({
-                            type: 'GLYPH_REACT_EFFECT_CREATED',
-                            data: {
-                                component: componentName,
-                                effectId,
-                                dependencies: deps,
-                                hasDeps: !!deps,
-                                timestamp: Date.now()
-                            }
-                        }, '*');
-                        
-                        return originalUseEffect.call(this, effect, deps);
-                    };
-                    
-                    // Wrap createElement to track component renders
                     React.createElement = function(type, props, ...children) {
                         if (typeof type === 'function') {
                             const componentName = type.displayName || type.name || 'Anonymous';
+                            renderCount++;
+                            
                             window.postMessage({
                                 type: 'GLYPH_REACT_COMPONENT_RENDER',
                                 data: {
                                     component: componentName,
                                     propsCount: props ? Object.keys(props).length : 0,
                                     childrenCount: children.length,
-                                    timestamp: Date.now()
+                                    renderCount: renderCount,
+                                    timestamp: Date.now(),
+                                    stack: new Error().stack.split('\\n').slice(1, 4).join('\\n')
                                 }
                             }, '*');
                         }
@@ -126,18 +83,16 @@ class GlyphTracer {
                 }
             })();
         `;
-        this.injectScript(reactTracerCode);
     }
 
-    injectVueTracer() {
-        const vueTracerCode = `
+    getVueTracerCode() {
+        return `
             (function() {
                 if (typeof window !== 'undefined' && window.Vue) {
-                    console.log('🔮 Glyph: Injecting Vue tracer...');
+                    console.log('🔮 Glyph: Vue detected, injecting tracer...');
                     
                     const Vue = window.Vue;
                     
-                    // Vue 2.x
                     if (Vue.prototype && Vue.prototype.$mount) {
                         const originalMount = Vue.prototype.$mount;
                         Vue.prototype.$mount = function(...args) {
@@ -155,122 +110,61 @@ class GlyphTracer {
                         };
                     }
                     
-                    // Vue 3.x
-                    if (Vue.createApp) {
-                        const originalCreateApp = Vue.createApp;
-                        Vue.createApp = function(rootComponent, rootProps) {
-                            const app = originalCreateApp.call(this, rootComponent, rootProps);
-                            const originalMount = app.mount;
-                            
-                            app.mount = function(container) {
-                                window.postMessage({
-                                    type: 'GLYPH_VUE_APP_MOUNT',
-                                    data: {
-                                        component: rootComponent.name || 'Anonymous',
-                                        container: typeof container === 'string' ? container : 'Element',
-                                        timestamp: Date.now()
-                                    }
-                                }, '*');
-                                
-                                return originalMount.call(this, container);
-                            };
-                            
-                            return app;
-                        };
-                    }
-                    
                     console.log('🔮 Glyph: Vue tracer injected successfully');
                 }
             })();
         `;
-        this.injectScript(vueTracerCode);
     }
 
-    injectAngularTracer() {
-        const angularTracerCode = `
+    getAngularTracerCode() {
+        return `
             (function() {
                 if (typeof window !== 'undefined' && window.angular) {
-                    console.log('🔮 Glyph: Injecting Angular tracer...');
+                    console.log('🔮 Glyph: Angular detected, injecting tracer...');
                     
-                    const angular = window.angular;
-                    const originalModule = angular.module;
-                    
-                    angular.module = function(name, requires, configFn) {
-                        const moduleInstance = originalModule.apply(this, arguments);
-                        
-                        // Track module creation
-                        window.postMessage({
-                            type: 'GLYPH_ANGULAR_MODULE',
-                            data: {
-                                module: name,
-                                requires: requires || [],
-                                timestamp: Date.now()
-                            }
-                        }, '*');
-                        
-                        return moduleInstance;
-                    };
-                    
-                    console.log('🔮 Glyph: Angular tracer injected successfully');
+                    window.postMessage({
+                        type: 'GLYPH_ANGULAR_DETECTED',
+                        data: {
+                            version: window.angular.version?.full,
+                            timestamp: Date.now()
+                        }
+                    }, '*');
                 }
             })();
         `;
-        this.injectScript(angularTracerCode);
     }
 
     injectScript(code) {
         try {
             const script = document.createElement('script');
             script.textContent = code;
-            document.documentElement.appendChild(script);
+            (document.head || document.documentElement).appendChild(script);
             script.remove();
         } catch (error) {
             console.error('🔮 Glyph: Script injection failed', error);
         }
     }
-    // === END NEW FRAMEWORK INJECTION ===
-
-    // KEEP ALL EXISTING METHODS (unchanged)
-    stopTracing() {
-        this.isTracing = false;
-        this.restoreOriginalMethods();
-        this.recordStep('🛑 Glyph Tracing Stopped', { 
-            totalSteps: this.stepCount 
-        });
-    }
 
     interceptCoreAPIs() {
-        // Fetch API - KEEP EXISTING
         this.wrapMethod(window, 'fetch', (originalFetch) => {
             return (...args) => {
                 if (!this.isTracing) return originalFetch.apply(this, args);
                 
                 const fetchId = this.recordStep('🌐 Fetch API', { 
-                    url: args[0],
-                    method: args[1]?.method || 'GET',
-                    headers: args[1]?.headers ? 'present' : 'none'
+                    url: typeof args[0] === 'string' ? args[0] : 'Request',
+                    method: args[1]?.method || 'GET'
                 });
                 
                 const startTime = performance.now();
                 
                 return originalFetch.apply(this, args)
-                    .then(async (response) => {
+                    .then(response => {
                         const duration = performance.now() - startTime;
-                        const clone = response.clone();
-                        try {
-                            const data = await clone.text();
-                            this.updateStep(fetchId, 'success', { 
-                                status: response.status,
-                                duration: Math.round(duration),
-                                size: data.length,
-                                contentType: response.headers.get('content-type')
-                            });
-                        } catch (e) {
-                            this.updateStep(fetchId, 'success', { 
-                                status: response.status,
-                                duration: Math.round(duration)
-                            });
-                        }
+                        this.updateStep(fetchId, 'success', { 
+                            status: response.status,
+                            duration: Math.round(duration),
+                            url: response.url
+                        });
                         return response;
                     })
                     .catch(error => {
@@ -284,49 +178,209 @@ class GlyphTracer {
             };
         });
 
-        // XMLHttpRequest - KEEP EXISTING
         this.interceptXHR();
     }
 
-    // KEEP ALL OTHER EXISTING METHODS EXACTLY AS THEY ARE...
-    wrapAsyncOperations() { /* unchanged */ }
-    wrapPromisePrototype() { /* unchanged */ }
-    interceptXHR() { /* unchanged */ }
-    wrapEventListeners() { /* unchanged */ }
-    
-    // REPLACE the old framework detection with new injection
-    instrumentFrameworkIfPresent() {
-        // Now handled by injectFrameworkTracers()
-        this.recordStep('🔍 Framework Detection', {
-            react: !!window.React,
-            vue: !!window.Vue, 
-            angular: !!window.angular
+    interceptXHR() {
+        const originalXHR = window.XMLHttpRequest;
+        const self = this;
+        
+        window.XMLHttpRequest = function() {
+            const xhr = new originalXHR();
+            const open = xhr.open;
+            const send = xhr.send;
+            
+            let xhrId;
+            
+            xhr.open = function(method, url, async) {
+                if (self.isTracing) {
+                    xhrId = self.recordStep('🌐 XMLHttpRequest', {
+                        method,
+                        url,
+                        async: async !== false
+                    });
+                }
+                return open.apply(this, arguments);
+            };
+            
+            xhr.send = function(data) {
+                if (self.isTracing && xhrId) {
+                    const startTime = performance.now();
+                    
+                    xhr.addEventListener('load', function() {
+                        const duration = performance.now() - startTime;
+                        self.updateStep(xhrId, 'success', {
+                            status: xhr.status,
+                            duration: Math.round(duration)
+                        });
+                    });
+                    
+                    xhr.addEventListener('error', function() {
+                        const duration = performance.now() - startTime;
+                        self.updateStep(xhrId, 'error', {
+                            duration: Math.round(duration)
+                        });
+                    });
+                }
+                
+                return send.apply(this, arguments);
+            };
+            
+            return xhr;
+        };
+    }
+
+    wrapAsyncOperations() {
+        this.wrapMethod(window, 'setTimeout', (original) => {
+            return (callback, delay, ...args) => {
+                if (!this.isTracing) return original(callback, delay, ...args);
+                
+                const timerId = this.recordStep('⏰ setTimeout', { 
+                    delay,
+                    stack: this.getStack()
+                });
+                
+                return original(() => {
+                    this.updateStep(timerId, 'executed', {});
+                    return callback(...args);
+                }, delay);
+            };
+        });
+
+        this.wrapMethod(window, 'setInterval', (original) => {
+            return (callback, delay, ...args) => {
+                if (!this.isTracing) return original(callback, delay, ...args);
+                
+                const intervalId = this.recordStep('🔄 setInterval', { 
+                    delay 
+                });
+                
+                return original(() => {
+                    this.updateStep(intervalId, 'executed', {
+                        executionCount: (this.executionFlow.find(s => s.id === intervalId)?.data?.executionCount || 0) + 1
+                    });
+                    return callback(...args);
+                }, delay);
+            };
         });
     }
 
-    // KEEP all other methods exactly as they were...
-    instrumentReact() { /* now handled by injection */ }
-    instrumentVue() { /* now handled by injection */ }
-    
-    setupPerformanceMonitoring() { /* unchanged */ }
-    setupMessageListener() { /* unchanged */ }
-    wrapMethod() { /* unchanged */ }
-    restoreOriginalMethods() { /* unchanged */ }
-    recordStep() { /* unchanged */ }
-    recordAsyncStep() { /* unchanged */ }
-    updateStep() { /* unchanged */ }
-    generateId() { /* unchanged */ }
-    getStack() { /* unchanged */ }
-    sendToDevTools() { /* unchanged */ }
+    wrapMethod(obj, methodName, wrapper) {
+        const original = obj[methodName];
+        if (typeof original !== 'function') return;
+        
+        this.originalMethods.set(`${obj.constructor?.name}.${methodName}`, original);
+        obj[methodName] = wrapper(original);
+    }
+
+    recordStep(type, data) {
+        if (!this.isTracing) return null;
+        
+        if (this.executionFlow.length >= this.config.maxSteps) {
+            this.executionFlow.shift();
+        }
+        
+        const step = {
+            id: this.generateId(),
+            type,
+            timestamp: Date.now(),
+            data,
+            status: 'running',
+            stepNumber: this.stepCount++
+        };
+        
+        this.executionFlow.push(step);
+        this.sendToDevTools('step-added', step);
+        return step.id;
+    }
+
+    updateStep(stepId, status, data) {
+        if (!this.isTracing) return;
+        
+        const step = this.executionFlow.find(s => s.id === stepId);
+        if (step) {
+            step.status = status;
+            step.data = { ...step.data, ...data };
+            step.completedAt = Date.now();
+            step.duration = step.completedAt - step.timestamp;
+            this.sendToDevTools('step-updated', step);
+        }
+    }
+
+    generateId() {
+        return `glyph-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    }
+
+    getStack() {
+        try {
+            return new Error().stack.split('\n').slice(2, 5).join('\n');
+        } catch {
+            return '';
+        }
+    }
+
+    setupPerformanceMonitoring() {
+        if (this.config.trackMemory && 'memory' in performance) {
+            setInterval(() => {
+                this.recordStep('📊 Memory Usage', {
+                    usedJSHeapSize: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
+                    totalJSHeapSize: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024)
+                });
+            }, 15000);
+        }
+    }
+
+    setupMessageListener() {
+        window.addEventListener('message', (event) => {
+            if (event.data.type?.startsWith('GLYPH_')) {
+                this.handleGlyphMessage(event.data);
+            }
+        });
+    }
+
+    handleGlyphMessage(message) {
+        switch (message.type) {
+            case 'GLYPH_REACT_COMPONENT_RENDER':
+                this.recordStep('⚛️ React Render', message.data);
+                break;
+            case 'GLYPH_VUE_MOUNT':
+                this.recordStep('🟢 Vue Mount', message.data);
+                break;
+            case 'GLYPH_ANGULAR_DETECTED':
+                this.recordStep('🅰️ Angular Detected', message.data);
+                break;
+        }
+    }
+
+    sendToDevTools(event, data) {
+        window.postMessage({
+            type: 'GLYPH_TRACE_DATA',
+            data: { 
+                event, 
+                ...data,
+                pageUrl: window.location.href
+            }
+        }, '*');
+        
+        if (typeof chrome !== 'undefined' && chrome.runtime) {
+            chrome.runtime.sendMessage({
+                type: 'GLYPH_TRACE_UPDATE',
+                data: { event, ...data }
+            });
+        }
+    }
+
+    stopTracing() {
+        this.isTracing = false;
+        this.recordStep('🛑 Glyph Tracing Stopped', { 
+            totalSteps: this.stepCount 
+        });
+    }
 }
 
-// KEEP initialization exactly as is
 function initializeGlyphTracer() {
     try {
-        if (window.glyphTracer) {
-            console.log('🔮 Glyph.js: Already initialized');
-            return window.glyphTracer;
-        }
+        if (window.glyphTracer) return window.glyphTracer;
         
         window.glyphTracer = new GlyphTracer();
         
@@ -337,7 +391,6 @@ function initializeGlyphTracer() {
             clear: () => window.glyphTracer.executionFlow = []
         };
         
-        console.log('🔮 Glyph.js: Tracer initialized successfully');
         return window.glyphTracer;
     } catch (error) {
         console.error('🔮 Glyph.js: Initialization failed', error);
@@ -345,7 +398,6 @@ function initializeGlyphTracer() {
     }
 }
 
-// Auto-initialize when injected
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initializeGlyphTracer);
 } else {
