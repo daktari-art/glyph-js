@@ -1,405 +1,401 @@
-// glyph-js/extension/content-script.js
-class GlyphTracer {
-    constructor() {
-        this.executionFlow = [];
-        this.isTracing = false;
-        this.stepCount = 0;
-        this.originalMethods = new Map();
-        this.config = {
-            maxSteps: 1000,
-            sampleRate: 1.0,
-            captureStack: true,
-            trackMemory: false
-        };
-        
-        this.init();
-    }
-
-    init() {
-        this.startTracing();
-        this.setupMessageListener();
-    }
-
-    startTracing() {
-        if (this.isTracing) return;
-        
-        try {
-            this.isTracing = true;
-            this.executionFlow = [];
-            this.stepCount = 0;
+// Glyph Language Runtime Tracer - Bridges JavaScript to Glyph Visualizations
+(function() {
+    'use strict';
+    
+    class GlyphLanguageTracer {
+        constructor() {
+            this.executionGraph = {
+                nodes: [],
+                connections: [],
+                metadata: {
+                    language: "glyph-js-trace",
+                    version: "1.0",
+                    timestamp: Date.now()
+                }
+            };
             
-            this.interceptCoreAPIs();
+            this.nodeIdCounter = 0;
+            this.isTracing = false;
+            this.setupTracing();
+        }
+        
+        setupTracing() {
+            // Core JavaScript to Glyph mapping
             this.wrapAsyncOperations();
-            this.injectFrameworkTracers();
-            this.setupPerformanceMonitoring();
+            this.wrapFunctionCalls();
+            this.catchErrors();
+            this.interceptEvents();
             
-            this.recordStep('🚀 Glyph Tracing Started', { 
-                url: window.location.href,
-                userAgent: navigator.userAgent.substring(0, 100)
-            });
-            
-            console.log('🔮 Glyph.js: Execution tracing started');
-        } catch (error) {
-            console.error('🔮 Glyph.js: Tracing initialization failed', error);
+            // Expose to page for debugging
+            window.glyphTracer = this;
         }
-    }
-
-    injectFrameworkTracers() {
-        this.injectScript(this.getReactTracerCode());
-        this.injectScript(this.getVueTracerCode());
-        this.injectScript(this.getAngularTracerCode());
-    }
-
-    getReactTracerCode() {
-        return `
-            (function() {
-                if (typeof window !== 'undefined' && window.React) {
-                    console.log('🔮 Glyph: React detected, injecting tracer...');
-                    
-                    const originalCreateElement = React.createElement;
-                    let renderCount = 0;
-                    
-                    React.createElement = function(type, props, ...children) {
-                        if (typeof type === 'function') {
-                            const componentName = type.displayName || type.name || 'Anonymous';
-                            renderCount++;
-                            
-                            window.postMessage({
-                                type: 'GLYPH_REACT_COMPONENT_RENDER',
-                                data: {
-                                    component: componentName,
-                                    propsCount: props ? Object.keys(props).length : 0,
-                                    childrenCount: children.length,
-                                    renderCount: renderCount,
-                                    timestamp: Date.now(),
-                                    stack: new Error().stack.split('\\n').slice(1, 4).join('\\n')
-                                }
-                            }, '*');
-                        }
-                        return originalCreateElement.call(this, type, props, ...children);
-                    };
-                    
-                    console.log('🔮 Glyph: React tracer injected successfully');
-                }
-            })();
-        `;
-    }
-
-    getVueTracerCode() {
-        return `
-            (function() {
-                if (typeof window !== 'undefined' && window.Vue) {
-                    console.log('🔮 Glyph: Vue detected, injecting tracer...');
-                    
-                    const Vue = window.Vue;
-                    
-                    if (Vue.prototype && Vue.prototype.$mount) {
-                        const originalMount = Vue.prototype.$mount;
-                        Vue.prototype.$mount = function(...args) {
-                            const componentName = this.$options.name || 'Anonymous';
-                            
-                            window.postMessage({
-                                type: 'GLYPH_VUE_MOUNT',
-                                data: {
-                                    component: componentName,
-                                    timestamp: Date.now()
-                                }
-                            }, '*');
-                            
-                            return originalMount.apply(this, args);
-                        };
+        
+        wrapAsyncOperations() {
+            // Wrap fetch - represents as 🔄 ASYNC_NODE
+            const originalFetch = window.fetch;
+            window.fetch = (...args) => {
+                const callId = this.generateNodeId();
+                const fetchNode = {
+                    id: callId,
+                    type: "🔄",
+                    label: `fetch("${args[0]}")`,
+                    timestamp: Date.now(),
+                    properties: {
+                        url: args[0],
+                        method: args[1]?.method || 'GET',
+                        args: this.sanitizeArgs(args)
                     }
-                    
-                    console.log('🔮 Glyph: Vue tracer injected successfully');
-                }
-            })();
-        `;
-    }
-
-    getAngularTracerCode() {
-        return `
-            (function() {
-                if (typeof window !== 'undefined' && window.angular) {
-                    console.log('🔮 Glyph: Angular detected, injecting tracer...');
-                    
-                    window.postMessage({
-                        type: 'GLYPH_ANGULAR_DETECTED',
-                        data: {
-                            version: window.angular.version?.full,
-                            timestamp: Date.now()
-                        }
-                    }, '*');
-                }
-            })();
-        `;
-    }
-
-    injectScript(code) {
-        try {
-            const script = document.createElement('script');
-            script.textContent = code;
-            (document.head || document.documentElement).appendChild(script);
-            script.remove();
-        } catch (error) {
-            console.error('🔮 Glyph: Script injection failed', error);
-        }
-    }
-
-    interceptCoreAPIs() {
-        this.wrapMethod(window, 'fetch', (originalFetch) => {
-            return (...args) => {
-                if (!this.isTracing) return originalFetch.apply(this, args);
+                };
                 
-                const fetchId = this.recordStep('🌐 Fetch API', { 
-                    url: typeof args[0] === 'string' ? args[0] : 'Request',
-                    method: args[1]?.method || 'GET'
-                });
-                
-                const startTime = performance.now();
+                this.addNode(fetchNode);
+                this.sendToDevTools('NODE_ADDED', fetchNode);
                 
                 return originalFetch.apply(this, args)
                     .then(response => {
-                        const duration = performance.now() - startTime;
-                        this.updateStep(fetchId, 'success', { 
-                            status: response.status,
-                            duration: Math.round(duration),
-                            url: response.url
+                        const successNode = {
+                            id: this.generateNodeId(),
+                            type: "⤶",
+                            label: `Response ${response.status}`,
+                            timestamp: Date.now(),
+                            properties: {
+                                status: response.status,
+                                ok: response.ok
+                            }
+                        };
+                        
+                        this.addNode(successNode);
+                        this.addConnection(callId, successNode.id, "→");
+                        this.sendToDevTools('NODE_ADDED', successNode);
+                        this.sendToDevTools('CONNECTION_ADDED', {
+                            from: callId, 
+                            to: successNode.id, 
+                            type: "→"
                         });
+                        
                         return response;
                     })
                     .catch(error => {
-                        const duration = performance.now() - startTime;
-                        this.updateStep(fetchId, 'error', { 
-                            error: error.message,
-                            duration: Math.round(duration)
+                        const errorNode = {
+                            id: this.generateNodeId(),
+                            type: "⚡",
+                            label: `Fetch Error`,
+                            timestamp: Date.now(),
+                            properties: {
+                                error: error.message
+                            }
+                        };
+                        
+                        this.addNode(errorNode);
+                        this.addConnection(callId, errorNode.id, "⚡");
+                        this.sendToDevTools('NODE_ADDED', errorNode);
+                        this.sendToDevTools('CONNECTION_ADDED', {
+                            from: callId, 
+                            to: errorNode.id, 
+                            type: "⚡"
                         });
+                        
                         throw error;
                     });
             };
-        });
-
-        this.interceptXHR();
-    }
-
-    interceptXHR() {
-        const originalXHR = window.XMLHttpRequest;
-        const self = this;
+            
+            // Wrap setTimeout/setInterval - represents as 🔄 ASYNC_NODE
+            this.wrapTimer('setTimeout');
+            this.wrapTimer('setInterval');
+            
+            // Wrap Promises - represents as 🔄 ASYNC_NODE
+            this.wrapPromise();
+        }
         
-        window.XMLHttpRequest = function() {
-            const xhr = new originalXHR();
-            const open = xhr.open;
-            const send = xhr.send;
-            
-            let xhrId;
-            
-            xhr.open = function(method, url, async) {
-                if (self.isTracing) {
-                    xhrId = self.recordStep('🌐 XMLHttpRequest', {
-                        method,
-                        url,
-                        async: async !== false
+        wrapTimer(timerName) {
+            const original = window[timerName];
+            window[timerName] = (callback, delay, ...args) => {
+                const callId = this.generateNodeId();
+                const timerNode = {
+                    id: callId,
+                    type: "🔄",
+                    label: `${timerName}(${delay}ms)`,
+                    timestamp: Date.now(),
+                    properties: {
+                        delay: delay,
+                        type: timerName
+                    }
+                };
+                
+                this.addNode(timerNode);
+                this.sendToDevTools('NODE_ADDED', timerNode);
+                
+                const wrappedCallback = (...cbArgs) => {
+                    const resultNode = {
+                        id: this.generateNodeId(),
+                        type: "⤶",
+                        label: `Timer Executed`,
+                        timestamp: Date.now()
+                    };
+                    
+                    this.addNode(resultNode);
+                    this.addConnection(callId, resultNode.id, "→");
+                    this.sendToDevTools('NODE_ADDED', resultNode);
+                    this.sendToDevTools('CONNECTION_ADDED', {
+                        from: callId, 
+                        to: resultNode.id, 
+                        type: "→"
+                    });
+                    
+                    return callback.apply(this, cbArgs);
+                };
+                
+                return original.call(this, wrappedCallback, delay, ...args);
+            };
+        }
+        
+        wrapPromise() {
+            const originalThen = Promise.prototype.then;
+            Promise.prototype.then = function(onFulfilled, onRejected) {
+                const promiseId = this.__glyphId || this.generateNodeId();
+                this.__glyphId = promiseId;
+                
+                const wrappedFulfilled = onFulfilled ? (result) => {
+                    const resultNode = {
+                        id: this.generateNodeId(),
+                        type: "⤶",
+                        label: `Promise Resolved`,
+                        timestamp: Date.now(),
+                        properties: {
+                            result: this.sanitizeData(result)
+                        }
+                    };
+                    
+                    this.addNode(resultNode);
+                    this.addConnection(promiseId, resultNode.id, "→");
+                    this.sendToDevTools('NODE_ADDED', resultNode);
+                    this.sendToDevTools('CONNECTION_ADDED', {
+                        from: promiseId, 
+                        to: resultNode.id, 
+                        type: "→"
+                    });
+                    
+                    return onFulfilled(result);
+                } : onFulfilled;
+                
+                const wrappedRejected = onRejected ? (error) => {
+                    const errorNode = {
+                        id: this.generateNodeId(),
+                        type: "⚡",
+                        label: `Promise Rejected`,
+                        timestamp: Date.now(),
+                        properties: {
+                            error: error.message
+                        }
+                    };
+                    
+                    this.addNode(errorNode);
+                    this.addConnection(promiseId, errorNode.id, "⚡");
+                    this.sendToDevTools('NODE_ADDED', errorNode);
+                    this.sendToDevTools('CONNECTION_ADDED', {
+                        from: promiseId, 
+                        to: errorNode.id, 
+                        type: "⚡"
+                    });
+                    
+                    return onRejected(error);
+                } : onRejected;
+                
+                return originalThen.call(this, wrappedFulfilled, wrappedRejected);
+            };
+        }
+        
+        wrapFunctionCalls() {
+            // This is a simplified version - in production you'd want more targeted wrapping
+            const originalQuerySelector = Document.prototype.querySelector;
+            Document.prototype.querySelector = function(selector) {
+                const callId = this.generateNodeId();
+                const domNode = {
+                    id: callId,
+                    type: "▷",
+                    label: `querySelector("${selector}")`,
+                    timestamp: Date.now(),
+                    properties: {
+                        selector: selector,
+                        type: 'DOM_QUERY'
+                    }
+                };
+                
+                this.addNode(domNode);
+                this.sendToDevTools('NODE_ADDED', domNode);
+                
+                const result = originalQuerySelector.call(this, selector);
+                
+                if (result) {
+                    const resultNode = {
+                        id: this.generateNodeId(),
+                        type: "○",
+                        label: `DOM Element`,
+                        timestamp: Date.now(),
+                        properties: {
+                            tagName: result.tagName,
+                            found: true
+                        }
+                    };
+                    
+                    this.addNode(resultNode);
+                    this.addConnection(callId, resultNode.id, "→");
+                    this.sendToDevTools('NODE_ADDED', resultNode);
+                    this.sendToDevTools('CONNECTION_ADDED', {
+                        from: callId, 
+                        to: resultNode.id, 
+                        type: "→"
                     });
                 }
-                return open.apply(this, arguments);
+                
+                return result;
             };
+        }
+        
+        catchErrors() {
+            window.addEventListener('error', (event) => {
+                const errorNode = {
+                    id: this.generateNodeId(),
+                    type: "⚡",
+                    label: `Global Error`,
+                    timestamp: Date.now(),
+                    properties: {
+                        message: event.message,
+                        filename: event.filename,
+                        lineno: event.lineno,
+                        colno: event.colno
+                    }
+                };
+                
+                this.addNode(errorNode);
+                this.sendToDevTools('NODE_ADDED', errorNode);
+            });
             
-            xhr.send = function(data) {
-                if (self.isTracing && xhrId) {
-                    const startTime = performance.now();
-                    
-                    xhr.addEventListener('load', function() {
-                        const duration = performance.now() - startTime;
-                        self.updateStep(xhrId, 'success', {
-                            status: xhr.status,
-                            duration: Math.round(duration)
-                        });
-                    });
-                    
-                    xhr.addEventListener('error', function() {
-                        const duration = performance.now() - startTime;
-                        self.updateStep(xhrId, 'error', {
-                            duration: Math.round(duration)
-                        });
-                    });
-                }
+            window.addEventListener('unhandledrejection', (event) => {
+                const errorNode = {
+                    id: this.generateNodeId(),
+                    type: "⚡",
+                    label: `Unhandled Promise`,
+                    timestamp: Date.now(),
+                    properties: {
+                        reason: event.reason?.message || event.reason
+                    }
+                };
                 
-                return send.apply(this, arguments);
-            };
-            
-            return xhr;
-        };
-    }
-
-    wrapAsyncOperations() {
-        this.wrapMethod(window, 'setTimeout', (original) => {
-            return (callback, delay, ...args) => {
-                if (!this.isTracing) return original(callback, delay, ...args);
-                
-                const timerId = this.recordStep('⏰ setTimeout', { 
-                    delay,
-                    stack: this.getStack()
-                });
-                
-                return original(() => {
-                    this.updateStep(timerId, 'executed', {});
-                    return callback(...args);
-                }, delay);
-            };
-        });
-
-        this.wrapMethod(window, 'setInterval', (original) => {
-            return (callback, delay, ...args) => {
-                if (!this.isTracing) return original(callback, delay, ...args);
-                
-                const intervalId = this.recordStep('🔄 setInterval', { 
-                    delay 
-                });
-                
-                return original(() => {
-                    this.updateStep(intervalId, 'executed', {
-                        executionCount: (this.executionFlow.find(s => s.id === intervalId)?.data?.executionCount || 0) + 1
-                    });
-                    return callback(...args);
-                }, delay);
-            };
-        });
-    }
-
-    wrapMethod(obj, methodName, wrapper) {
-        const original = obj[methodName];
-        if (typeof original !== 'function') return;
-        
-        this.originalMethods.set(`${obj.constructor?.name}.${methodName}`, original);
-        obj[methodName] = wrapper(original);
-    }
-
-    recordStep(type, data) {
-        if (!this.isTracing) return null;
-        
-        if (this.executionFlow.length >= this.config.maxSteps) {
-            this.executionFlow.shift();
-        }
-        
-        const step = {
-            id: this.generateId(),
-            type,
-            timestamp: Date.now(),
-            data,
-            status: 'running',
-            stepNumber: this.stepCount++
-        };
-        
-        this.executionFlow.push(step);
-        this.sendToDevTools('step-added', step);
-        return step.id;
-    }
-
-    updateStep(stepId, status, data) {
-        if (!this.isTracing) return;
-        
-        const step = this.executionFlow.find(s => s.id === stepId);
-        if (step) {
-            step.status = status;
-            step.data = { ...step.data, ...data };
-            step.completedAt = Date.now();
-            step.duration = step.completedAt - step.timestamp;
-            this.sendToDevTools('step-updated', step);
-        }
-    }
-
-    generateId() {
-        return `glyph-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    }
-
-    getStack() {
-        try {
-            return new Error().stack.split('\n').slice(2, 5).join('\n');
-        } catch {
-            return '';
-        }
-    }
-
-    setupPerformanceMonitoring() {
-        if (this.config.trackMemory && 'memory' in performance) {
-            setInterval(() => {
-                this.recordStep('📊 Memory Usage', {
-                    usedJSHeapSize: Math.round(performance.memory.usedJSHeapSize / 1024 / 1024),
-                    totalJSHeapSize: Math.round(performance.memory.totalJSHeapSize / 1024 / 1024)
-                });
-            }, 15000);
-        }
-    }
-
-    setupMessageListener() {
-        window.addEventListener('message', (event) => {
-            if (event.data.type?.startsWith('GLYPH_')) {
-                this.handleGlyphMessage(event.data);
-            }
-        });
-    }
-
-    handleGlyphMessage(message) {
-        switch (message.type) {
-            case 'GLYPH_REACT_COMPONENT_RENDER':
-                this.recordStep('⚛️ React Render', message.data);
-                break;
-            case 'GLYPH_VUE_MOUNT':
-                this.recordStep('🟢 Vue Mount', message.data);
-                break;
-            case 'GLYPH_ANGULAR_DETECTED':
-                this.recordStep('🅰️ Angular Detected', message.data);
-                break;
-        }
-    }
-
-    sendToDevTools(event, data) {
-        window.postMessage({
-            type: 'GLYPH_TRACE_DATA',
-            data: { 
-                event, 
-                ...data,
-                pageUrl: window.location.href
-            }
-        }, '*');
-        
-        if (typeof chrome !== 'undefined' && chrome.runtime) {
-            chrome.runtime.sendMessage({
-                type: 'GLYPH_TRACE_UPDATE',
-                data: { event, ...data }
+                this.addNode(errorNode);
+                this.sendToDevTools('NODE_ADDED', errorNode);
             });
         }
-    }
-
-    stopTracing() {
-        this.isTracing = false;
-        this.recordStep('🛑 Glyph Tracing Stopped', { 
-            totalSteps: this.stepCount 
-        });
-    }
-}
-
-function initializeGlyphTracer() {
-    try {
-        if (window.glyphTracer) return window.glyphTracer;
         
-        window.glyphTracer = new GlyphTracer();
+        interceptEvents() {
+            const originalAddEventListener = EventTarget.prototype.addEventListener;
+            EventTarget.prototype.addEventListener = function(type, listener, options) {
+                const callId = this.generateNodeId();
+                const eventNode = {
+                    id: callId,
+                    type: "⤵",
+                    label: `Event: ${type}`,
+                    timestamp: Date.now(),
+                    properties: {
+                        eventType: type,
+                        target: this.constructor.name
+                    }
+                };
+                
+                this.addNode(eventNode);
+                this.sendToDevTools('NODE_ADDED', eventNode);
+                
+                const wrappedListener = (event) => {
+                    const executionNode = {
+                        id: this.generateNodeId(),
+                        type: "▷",
+                        label: `Handle ${type}`,
+                        timestamp: Date.now()
+                    };
+                    
+                    this.addNode(executionNode);
+                    this.addConnection(callId, executionNode.id, "→");
+                    this.sendToDevTools('NODE_ADDED', executionNode);
+                    this.sendToDevTools('CONNECTION_ADDED', {
+                        from: callId, 
+                        to: executionNode.id, 
+                        type: "→"
+                    });
+                    
+                    return listener.call(this, event);
+                };
+                
+                return originalAddEventListener.call(this, type, wrappedListener, options);
+            };
+        }
         
-        window.Glyph = {
-            start: () => window.glyphTracer.startTracing(),
-            stop: () => window.glyphTracer.stopTracing(),
-            getFlow: () => window.glyphTracer.executionFlow,
-            clear: () => window.glyphTracer.executionFlow = []
-        };
+        // Utility methods
+        generateNodeId() {
+            return `node_${this.nodeIdCounter++}_${Date.now()}`;
+        }
         
-        return window.glyphTracer;
-    } catch (error) {
-        console.error('🔮 Glyph.js: Initialization failed', error);
-        return null;
+        addNode(node) {
+            this.executionGraph.nodes.push(node);
+        }
+        
+        addConnection(fromId, toId, connectionType = "→") {
+            this.executionGraph.connections.push({
+                from: fromId,
+                to: toId,
+                type: connectionType
+            });
+        }
+        
+        sanitizeArgs(args) {
+            // Basic sanitization for sensitive data
+            return args.map(arg => {
+                if (typeof arg === 'string' && arg.length > 100) {
+                    return arg.substring(0, 100) + '...';
+                }
+                return arg;
+            });
+        }
+        
+        sanitizeData(data) {
+            // Prevent logging sensitive information
+            if (typeof data === 'object' && data !== null) {
+                return { type: typeof data, sanitized: true };
+            }
+            return data;
+        }
+        
+        sendToDevTools(eventType, data) {
+            // Send to background script which relays to devtools
+            window.postMessage({
+                type: 'GLYPH_TRACER_DATA',
+                payload: {
+                    event: eventType,
+                    data: data,
+                    graph: this.executionGraph
+                }
+            }, '*');
+        }
+        
+        // Export current execution as Glyph Language format
+        exportAsGlyph() {
+            return {
+                version: "1.0",
+                program: "javascript-trace",
+                nodes: this.executionGraph.nodes,
+                connections: this.executionGraph.connections,
+                metadata: {
+                    exportedAt: new Date().toISOString(),
+                    nodeCount: this.executionGraph.nodes.length,
+                    connectionCount: this.executionGraph.connections.length
+                }
+            };
+        }
     }
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeGlyphTracer);
-} else {
-    initializeGlyphTracer();
-}
+    
+    // Initialize the tracer
+    const glyphTracer = new GlyphLanguageTracer();
+    
+    // Expose export function to window
+    window.exportGlyphTrace = () => glyphTracer.exportAsGlyph();
+    
+    console.log('🔮 Glyph Language Tracer initialized - Visualizing JavaScript execution as data flow');
+})();
