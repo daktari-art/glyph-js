@@ -3,7 +3,6 @@ class GlyphDevToolsPanel {
         this.nodes = new Map();
         this.connections = [];
         this.isTracing = false;
-        this.port = null;
         
         this.initializeUI();
         this.setupMessageHandling();
@@ -23,20 +22,10 @@ class GlyphDevToolsPanel {
     }
     
     setupMessageHandling() {
-        // Listen for messages from content script
+        // Listen for messages from content script via window.postMessage
         window.addEventListener('message', (event) => {
             if (event.data.type === 'GLYPH_TRACER_DATA') {
                 this.handleTracerData(event.data.payload);
-            }
-        });
-        
-        // Connect to background script
-        this.port = chrome.runtime.connect({ name: "glyph-devtools" });
-        
-        this.port.onMessage.addListener((message) => {
-            if (message.type === 'TRACING_STATE_CHANGED') {
-                this.isTracing = message.isTracing;
-                this.updateTracingUI();
             }
         });
     }
@@ -70,14 +59,29 @@ class GlyphDevToolsPanel {
     }
     
     startTracing() {
-        this.port.postMessage({ type: 'START_TRACING' });
+        // Inject content script and start tracing
+        chrome.devtools.inspectedWindow.eval(`
+            if (window.glyphTracer) {
+                window.glyphTracer.isTracing = true;
+                console.log('🔮 Glyph tracing started');
+            } else {
+                console.error('🔮 Glyph tracer not found');
+            }
+        `);
+        
         this.status.textContent = 'Tracing JavaScript execution...';
         this.isTracing = true;
         this.updateTracingUI();
     }
     
     stopTracing() {
-        this.port.postMessage({ type: 'STOP_TRACING' });
+        chrome.devtools.inspectedWindow.eval(`
+            if (window.glyphTracer) {
+                window.glyphTracer.isTracing = false;
+                console.log('🔮 Glyph tracing stopped');
+            }
+        `);
+        
         this.status.textContent = 'Tracing stopped';
         this.isTracing = false;
         this.updateTracingUI();
@@ -240,10 +244,6 @@ class GlyphDevToolsPanel {
         
         updateLine();
         this.glyphCanvas.appendChild(line);
-        
-        const observer = new MutationObserver(updateLine);
-        observer.observe(fromNode, { attributes: true, attributeFilter: ['style'] });
-        observer.observe(toNode, { attributes: true, attributeFilter: ['style'] });
     }
     
     autoLayoutNodes() {
@@ -400,7 +400,7 @@ class GlyphDevToolsPanel {
     }
 }
 
-// Initialize when the panel loads
+// Initialize when panel loads
 document.addEventListener('DOMContentLoaded', () => {
     new GlyphDevToolsPanel();
 });
