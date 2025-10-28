@@ -1,4 +1,3 @@
-// Glyph Language Extension - Background Service Worker
 chrome.runtime.onConnect.addListener((port) => {
     if (port.name === "glyph-devtools") {
         console.log('🔮 Glyph DevTools connected');
@@ -29,7 +28,6 @@ function startTracing(port) {
             activeTabId = tabs[0].id;
             isTracing = true;
             
-            // Inject content script if not already injected
             chrome.scripting.executeScript({
                 target: { tabId: activeTabId },
                 files: ['content-script.js']
@@ -54,10 +52,8 @@ function stopTracing(port) {
     });
 }
 
-// Listen for messages from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'GLYPH_TRACE_DATA') {
-        // Relay to devtools if tracing is active
         if (isTracing) {
             chrome.runtime.sendMessage(message);
         }
@@ -65,11 +61,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
 });
 
-// Track tab changes to maintain tracing state
 chrome.tabs.onActivated.addListener((activeInfo) => {
     if (isTracing) {
         activeTabId = activeInfo.tabId;
-        // Re-inject content script on tab change if needed
     }
 });
 
