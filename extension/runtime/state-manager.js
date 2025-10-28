@@ -6,7 +6,6 @@ class GlyphStateManager {
         this.currentExecutionId = null;
     }
 
-    // Capture variable state at execution points
     captureVariableSnapshot(executionId, context) {
         const snapshot = {
             timestamp: Date.now(),
@@ -22,7 +21,6 @@ class GlyphStateManager {
         return executionId;
     }
 
-    // Extract variables safely without exposing sensitive data
     safeExtractVariables(context) {
         try {
             return {
@@ -36,7 +34,6 @@ class GlyphStateManager {
         }
     }
 
-    // Source mapping for glyph nodes
     mapSourceLocation(nodeId, sourceInfo) {
         this.sourceMappings.set(nodeId, {
             file: sourceInfo.fileName,
@@ -47,22 +44,18 @@ class GlyphStateManager {
         });
     }
 
-    // Get source location for a glyph node
     getSourceForNode(nodeId) {
         return this.sourceMappings.get(nodeId) || null;
     }
 
-    // Time-travel to previous state
     getStateAtTime(timestamp) {
         return this.stateTimeline.find(state => 
             Math.abs(state.timestamp - timestamp) < 100
         );
     }
 
-    // Utility methods
     sanitizeData(data) {
         if (typeof data === 'object' && data !== null) {
-            // Prevent circular references and large objects
             try {
                 return JSON.parse(JSON.stringify(data, (key, value) => {
                     if (value && typeof value === 'object') {
@@ -78,13 +71,11 @@ class GlyphStateManager {
     }
 
     extractLocalVariables(context) {
-        // This is a simplified version - in reality would need more context
         const locals = {};
         try {
             if (context.arguments) {
                 locals.arguments = context.arguments;
             }
-            // Could be enhanced with more sophisticated variable extraction
         } catch (error) {
             locals.error = error.message;
         }
@@ -103,7 +94,6 @@ class GlyphStateManager {
     getSourceLocation() {
         const stack = new Error().stack;
         const stackLines = stack.split('\n');
-        // Skip the first line (this function) and get the caller
         if (stackLines.length > 2) {
             const callerLine = stackLines[2];
             return this.parseStackLine(callerLine);
@@ -112,7 +102,6 @@ class GlyphStateManager {
     }
 
     parseStackLine(stackLine) {
-        // Parse stack trace line to extract file, line, column
         const match = stackLine.match(/at (.+?) \((.+):(\d+):(\d+)\)/);
         if (match) {
             return {
@@ -122,9 +111,19 @@ class GlyphStateManager {
                 columnNumber: parseInt(match[4])
             };
         }
-        return { fileName: 'unknown', lineNumber: 0, columnNumber: 0 };
+        
+        const anonMatch = stackLine.match(/at (.+):(\d+):(\d+)/);
+        if (anonMatch) {
+            return {
+                functionName: 'anonymous',
+                fileName: anonMatch[1],
+                lineNumber: parseInt(anonMatch[2]),
+                columnNumber: parseInt(anonMatch[3])
+            };
+        }
+        
+        return { fileName: 'unknown', lineNumber: 0, columnNumber: 0, functionName: 'anonymous' };
     }
 }
 
-// Global instance
 window.glyphStateManager = new GlyphStateManager();
