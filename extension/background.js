@@ -1,3 +1,8 @@
+// Background service worker for Glyph Language extension
+chrome.runtime.onInstalled.addListener(() => {
+    console.log('🔮 Glyph Language DevTools extension installed');
+});
+
 chrome.runtime.onConnect.addListener((port) => {
     if (port.name === "glyph-devtools") {
         console.log('🔮 Glyph DevTools connected');
@@ -12,34 +17,20 @@ chrome.runtime.onConnect.addListener((port) => {
                     break;
             }
         });
-        
-        port.onDisconnect.addListener(() => {
-            console.log('🔮 Glyph DevTools disconnected');
-        });
     }
 });
 
 let isTracing = false;
-let activeTabId = null;
 
 function startTracing(port) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
-            activeTabId = tabs[0].id;
             isTracing = true;
-            
-            chrome.scripting.executeScript({
-                target: { tabId: activeTabId },
-                files: ['content-script.js']
-            }).then(() => {
-                console.log('🔮 Glyph tracer injected');
-                port.postMessage({ 
-                    type: 'TRACING_STATE_CHANGED', 
-                    isTracing: true 
-                });
-            }).catch(err => {
-                console.error('Failed to inject glyph tracer:', err);
+            port.postMessage({ 
+                type: 'TRACING_STATE_CHANGED', 
+                isTracing: true 
             });
+            console.log('🔮 Tracing started');
         }
     });
 }
@@ -50,21 +41,5 @@ function stopTracing(port) {
         type: 'TRACING_STATE_CHANGED', 
         isTracing: false 
     });
+    console.log('🔮 Tracing stopped');
 }
-
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'GLYPH_TRACE_DATA') {
-        if (isTracing) {
-            chrome.runtime.sendMessage(message);
-        }
-    }
-    return true;
-});
-
-chrome.tabs.onActivated.addListener((activeInfo) => {
-    if (isTracing) {
-        activeTabId = activeInfo.tabId;
-    }
-});
-
-console.log('🔮 Glyph Language Background Service Worker initialized');
