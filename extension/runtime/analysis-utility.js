@@ -1,5 +1,3 @@
-[file name]: analysis-utility.js
-[file content begin]
 // Glyph Analysis Utility - Runtime Analysis Engine
 (function() {
     'use strict';
@@ -191,4 +189,3 @@
     }
     
 })();
-[file content end]
