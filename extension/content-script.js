@@ -18,18 +18,63 @@
             
             this.nodeIdCounter = 0;
             this.isTracing = false;
-            this.setupTracing();
+            this.stateManagerReady = false;
+            this.analyzerReady = false;
+            
+            this.initializeTracing();
+        }
+        
+        initializeTracing() {
+            // Wait for dependencies to load
+            this.waitForDependencies().then(() => {
+                this.setupTracing();
+            }).catch(error => {
+                console.warn('🔮 Some dependencies not available - starting basic tracing:', error);
+                this.setupTracing();
+            });
+        }
+        
+        waitForDependencies() {
+            return new Promise((resolve) => {
+                let attempts = 0;
+                const maxAttempts = 50; // 5 seconds max wait
+                
+                const checkDependencies = () => {
+                    attempts++;
+                    
+                    // Check state manager
+                    if (window.GlyphStateManager && !window.glyphStateManager) {
+                        try {
+                            window.glyphStateManager = new window.GlyphStateManager();
+                            this.stateManagerReady = true;
+                            console.log('🔮 State manager initialized');
+                        } catch (error) {
+                            console.error('🔮 Failed to initialize state manager:', error);
+                        }
+                    } else if (window.glyphStateManager) {
+                        this.stateManagerReady = true;
+                    }
+                    
+                    // Check analyzer
+                    if (window.glyphAnalyzer) {
+                        this.analyzerReady = true;
+                        console.log('🔮 Analyzer available');
+                    }
+                    
+                    // Resolve if we have at least state manager or after max attempts
+                    if (this.stateManagerReady || attempts >= maxAttempts) {
+                        resolve();
+                    } else {
+                        setTimeout(checkDependencies, 100);
+                    }
+                };
+                
+                checkDependencies();
+            });
         }
         
         setupTracing() {
-            // Check if state manager is available (via manifest.json injection)
-            if (window.GlyphStateManager) {
-                // Instantiate the global state manager if not already done
-                window.glyphStateManager = window.glyphStateManager || new window.GlyphStateManager();
-                console.log('🔮 State manager available - enhanced tracing enabled');
-            } else {
-                console.warn('🔮 State manager not available - basic tracing only');
-            }
+            console.log(`🔮 Tracing setup - State Manager: ${this.stateManagerReady}, Analyzer: ${this.analyzerReady}`);
             
             this.wrapAsyncOperations();
             this.catchErrors();
@@ -49,25 +94,33 @@
                 const fetchId = this.generateNodeId();
                 const startTimestamp = Date.now();
                 
-                // Create snapshot of arguments before call
-                const snapshotId = window.glyphStateManager ? 
-                    window.glyphStateManager.captureVariableSnapshot(fetchId + '_start', { arguments: args, thisValue: this }) : null;
+                // SAFE snapshot capture
+                let snapshotId = null;
+                if (this.stateManagerReady && window.glyphStateManager) {
+                    try {
+                        snapshotId = window.glyphStateManager.captureVariableSnapshot(
+                            fetchId + '_start', 
+                            { arguments: args, thisValue: this }
+                        );
+                    } catch (error) {
+                        console.warn('🔮 Failed to capture snapshot:', error);
+                    }
+                }
 
                 const node = {
                     id: fetchId,
                     type: '🔶', // Async Node
-                    label: `Fetch: ${args[0].substring(0, 20)}`,
+                    label: `Fetch: ${this.safeString(args[0]).substring(0, 20)}`,
                     timestamp: startTimestamp,
                     properties: { 
                         method: (args[1] && args[1].method) || 'GET', 
-                        url: args[0],
+                        url: this.safeString(args[0]),
                         snapshotId: snapshotId
                     }
                 };
                 this.addNode(node);
                 this.sendToDevTools('NODE_ADDED', node);
 
-                // Call original fetch
                 return originalFetch.apply(window, args)
                     .then(response => {
                         if (!this.isTracing) return response;
@@ -75,7 +128,7 @@
                         const responseId = this.generateNodeId();
                         const responseNode = {
                             id: responseId,
-                            type: response.ok ? '🟢' : '🟥', // Output or Error Node
+                            type: response.ok ? '🟢' : '🟥',
                             label: `Response ${response.status}`,
                             timestamp: Date.now(),
                             properties: {
@@ -88,7 +141,11 @@
                         this.sendToDevTools('NODE_ADDED', responseNode);
                         
                         this.addConnection(fetchId, responseId, response.ok ? "→" : "⚡");
-                        this.sendToDevTools('CONNECTION_ADDED', { from: fetchId, to: responseId, type: response.ok ? "→" : "⚡" });
+                        this.sendToDevTools('CONNECTION_ADDED', { 
+                            from: fetchId, 
+                            to: responseId, 
+                            type: response.ok ? "→" : "⚡" 
+                        });
                         
                         return response;
                     })
@@ -98,7 +155,7 @@
                         const errorId = this.generateNodeId();
                         const errorNode = {
                             id: errorId,
-                            type: '🟥', // Error Node
+                            type: '🟥',
                             label: `Fetch Error: ${error.message}`,
                             timestamp: Date.now(),
                             properties: {
@@ -110,7 +167,11 @@
                         this.sendToDevTools('NODE_ADDED', errorNode);
                         
                         this.addConnection(fetchId, errorId, "⚡");
-                        this.sendToDevTools('CONNECTION_ADDED', { from: fetchId, to: errorId, type: "⚡" });
+                        this.sendToDevTools('CONNECTION_ADDED', { 
+                            from: fetchId, 
+                            to: errorId, 
+                            type: "⚡" 
+                        });
                         
                         throw error;
                     });
@@ -124,7 +185,7 @@
                 const timerId = this.generateNodeId();
                 const node = {
                     id: timerId,
-                    type: '🎯', // Event Node
+                    type: '🎯',
                     label: `Timer Set: ${delay}ms`,
                     timestamp: Date.now(),
                     properties: { delay: delay }
@@ -136,7 +197,7 @@
                     const callbackId = this.generateNodeId();
                     const callbackNode = {
                         id: callbackId,
-                        type: '🔷', // Function Node
+                        type: '🔷',
                         label: 'Timer Callback Executed',
                         timestamp: Date.now(),
                         properties: { sourceTimer: timerId }
@@ -145,30 +206,45 @@
                     this.sendToDevTools('NODE_ADDED', callbackNode);
                     
                     this.addConnection(timerId, callbackId, "→");
-                    this.sendToDevTools('CONNECTION_ADDED', { from: timerId, to: callbackId, type: "→" });
+                    this.sendToDevTools('CONNECTION_ADDED', { 
+                        from: timerId, 
+                        to: callbackId, 
+                        type: "→" 
+                    });
                     
                     try {
-                        callback.apply(this, args);
+                        return callback.apply(this, args);
                     } catch (error) {
                         this.handleRuntimeError(error, callbackId);
+                        throw error;
                     }
                 };
 
                 return originalSetTimeout(wrappedCallback, delay, ...args);
             };
-            
-            // Note: window.setInterval would be wrapped similarly
         }
         
         catchErrors() {
             window.addEventListener('error', (event) => {
                 if (!this.isTracing) return;
-                this.handleRuntimeError(event.error || new Error(event.message), null, event.lineno, event.colno, event.filename);
+                this.handleRuntimeError(
+                    event.error || new Error(event.message), 
+                    null, 
+                    event.lineno, 
+                    event.colno, 
+                    event.filename
+                );
             });
             
             window.addEventListener('unhandledrejection', (event) => {
                 if (!this.isTracing) return;
-                this.handleRuntimeError(event.reason || new Error("Unhandled Promise Rejection"), null, 0, 0, 'promise');
+                this.handleRuntimeError(
+                    event.reason || new Error("Unhandled Promise Rejection"), 
+                    null, 
+                    0, 
+                    0, 
+                    'promise'
+                );
             });
         }
         
@@ -176,7 +252,7 @@
             const errorId = this.generateNodeId();
             const errorNode = {
                 id: errorId,
-                type: '🟥', // Error Node
+                type: '🟥',
                 label: `Runtime Error: ${error.message.substring(0, 30)}`,
                 timestamp: Date.now(),
                 properties: {
@@ -190,7 +266,19 @@
             
             if (connectedNodeId) {
                 this.addConnection(connectedNodeId, errorId, "⚡");
-                this.sendToDevTools('CONNECTION_ADDED', { from: connectedNodeId, to: errorId, type: "⚡" });
+                this.sendToDevTools('CONNECTION_ADDED', { 
+                    from: connectedNodeId, 
+                    to: errorId, 
+                    type: "⚡" 
+                });
+            }
+        }
+        
+        safeString(value) {
+            try {
+                return String(value);
+            } catch {
+                return '[Unstringifiable]';
             }
         }
         
@@ -211,15 +299,39 @@
         }
         
         sendToDevTools(eventType, data) {
-            // Send to DevTools panel via window.postMessage
-            window.postMessage({
-                type: 'GLYPH_TRACER_DATA',
-                payload: {
-                    event: eventType,
-                    data: data,
-                    graph: this.executionGraph
-                }
-            }, '*');
+            try {
+                window.postMessage({
+                    type: 'GLYPH_TRACER_DATA',
+                    payload: {
+                        event: eventType,
+                        data: data,
+                        graph: this.executionGraph
+                    }
+                }, '*');
+            } catch (error) {
+                console.warn('🔮 Failed to send to DevTools:', error);
+            }
+        }
+        
+        // SAFE diagnosis runner
+        runDiagnosis() {
+            if (!this.analyzerReady || !window.glyphAnalyzer) {
+                console.error('🔮 Analyzer not available for diagnosis');
+                return {
+                    error: 'Analyzer not loaded',
+                    suggestions: ['Check if analysis-utility.js loaded correctly']
+                };
+            }
+            
+            try {
+                return window.glyphAnalyzer.analyzeTimeline();
+            } catch (error) {
+                console.error('🔮 Diagnosis failed:', error);
+                return {
+                    error: error.message,
+                    suggestions: ['Diagnosis engine encountered an error']
+                };
+            }
         }
     }
     
@@ -236,22 +348,11 @@
                 glyphTracer.isTracing = false;
                 console.log('🔮 Tracing stopped from DevTools');
             } else if (event.data.command === 'RUN_DIAGNOSIS') {
-                // --- NEW: Command Handler for Automated Diagnosis ---
-                if (window.glyphAnalyzer) {
-                    console.log('🧠 Running Automated Diagnosis...');
-                    const results = window.glyphAnalyzer.analyzeTimeline(); 
-
-                    // Send results back to the DevTools panel
-                    glyphTracer.sendToDevTools('DIAGNOSIS_RESULT', results);
-                } else {
-                    console.error('🧠 Diagnosis utility (glyphAnalyzer) not loaded. Cannot run diagnosis.');
-                    // Send an error message back to the panel
-                    glyphTracer.sendToDevTools('DIAGNOSIS_RESULT', [{ 
-                        type: 'Initialization Error', 
-                        solution: 'The automated analysis utility is missing. Please ensure the utility is properly loaded via manifest.json and check the console for details.', 
-                        timestamp: Date.now() 
-                    }]);
-                }
+                console.log('🧠 Running Automated Diagnosis...');
+                const results = glyphTracer.runDiagnosis();
+                
+                // Send results back to DevTools
+                glyphTracer.sendToDevTools('DIAGNOSIS_RESULT', results);
             }
         }
     });
