@@ -237,6 +237,170 @@
             });
         }
         
+        // --- New Tracing Methods for Generic Functions ---
+
+        /**
+         * Determines the correct Glyph symbol for a given data type.
+         * @param {any} data - The data value.
+         * @returns {string} The appropriate Glyph symbol.
+         */
+        getGlyphForData(data) {
+            const type = typeof data;
+            if (Array.isArray(data)) return "△"; // LIST_NODE
+            if (type === 'boolean') return "◇"; // BOOL_NODE
+            if (type === 'string') return "□";  // TEXT_NODE
+            return "○"; // DATA_NODE (default for numbers/objects)
+        }
+
+        /**
+         * Marks the beginning of a traced function call.
+         * Creates the input data nodes and the function node.
+         * @param {string} functionName - The name of the function being called.
+         * @param {Array<any>} args - The arguments passed to the function.
+         * @returns {{functionNodeId: string, inputNodeIds: Array<string>}} IDs for the function and input nodes.
+         */
+        traceFunctionStart(functionName, args) {
+            if (!this.isTracing || !window.glyphStateManager) {
+                return { functionNodeId: null, inputNodeIds: [] };
+            }
+
+            // 1. Capture the state and source location before execution
+            const sourceContext = this.captureSourceContext();
+            
+            // Use a unique execution ID for the state manager
+            const executionId = window.glyphStateManager.captureVariableSnapshot(this.generateNodeId(), { 
+                arguments: args, 
+                functionName: functionName,
+                thisValue: this 
+            });
+            
+            // 2. Create the FUNCTION_NODE (▷)
+            const functionNodeId = this.generateNodeId();
+            const functionNode = {
+                id: functionNodeId,
+                type: "▷", // FUNCTION_NODE
+                label: functionName,
+                timestamp: Date.now(),
+                properties: {
+                    source: sourceContext,
+                    executionId: executionId,  // For state manager lookup
+                    type: 'function_call'
+                }
+            };
+            this.addNode(functionNode);
+            window.glyphStateManager.mapSourceLocation(functionNodeId, sourceContext);
+
+            const inputNodeIds = [];
+
+            // 3. Create DATA_NODE for each argument (Input Data Flow)
+            args.forEach((arg, index) => {
+                const inputNodeId = this.generateNodeId();
+                const nodeGlyph = this.getGlyphForData(arg);
+                
+                const label = (typeof arg !== 'object' || arg === null) 
+                    ? String(arg).substring(0, 15) : (Array.isArray(arg) ? 'List' : 'Data');
+
+                const inputNode = {
+                    id: inputNodeId,
+                    type: nodeGlyph, 
+                    label: `Input ${index} (${label})`,
+                    timestamp: Date.now(),
+                    properties: { 
+                        value: window.glyphStateManager.sanitizeData(arg),
+                        executionId: executionId,
+                        port: `input_${index}`
+                    }
+                };
+                this.addNode(inputNode);
+                this.sendToDevTools('NODE_ADDED', inputNode);
+                
+                // Connect Input Node to Function Node (→)
+                this.addConnection(inputNodeId, functionNodeId, "→");
+                this.sendToDevTools('CONNECTION_ADDED', { from: inputNodeId, to: functionNodeId, type: "→" });
+                inputNodeIds.push(inputNodeId);
+            });
+
+            this.sendToDevTools('NODE_ADDED', functionNode);
+            
+            return { functionNodeId, inputNodeIds };
+        }
+
+        /**
+         * Marks the successful end of a traced function call.
+         * Creates the output data node and connects it to the function node.
+         * @param {string} functionNodeId - The ID of the function node created in traceFunctionStart.
+         * @param {any} result - The return value of the function.
+         */
+        traceFunctionEnd(functionNodeId, result) {
+            if (!this.isTracing || !window.glyphStateManager || !functionNodeId) {
+                return;
+            }
+            
+            // 1. Capture the final state (return value)
+            window.glyphStateManager.captureVariableSnapshot(functionNodeId + '_end', { 
+                returnValue: result 
+            });
+
+            // 2. Create the DATA_NODE for the result (Output Data Flow)
+            const resultNodeId = this.generateNodeId();
+            const resultGlyph = this.getGlyphForData(result);
+            
+            const resultNode = {
+                id: resultNodeId,
+                type: resultGlyph,
+                label: "Result",
+                timestamp: Date.now(),
+                properties: { 
+                    value: window.glyphStateManager.sanitizeData(result), 
+                    type: typeof result,
+                    port: 'return'
+                }
+            };
+            this.addNode(resultNode);
+            this.sendToDevTools('NODE_ADDED', resultNode);
+            
+            // 3. Connect Function Node to Result Node (→)
+            this.addConnection(functionNodeId, resultNodeId, "→");
+            this.sendToDevTools('CONNECTION_ADDED', { from: functionNodeId, to: resultNodeId, type: "→" });
+        }
+
+        /**
+         * Marks a function error (similar to catchErrors, but attached to a specific function node).
+         * Creates an error node and connects it with the error flow (⚡).
+         * @param {string} functionNodeId - The ID of the function node.
+         * @param {Error} error - The error object thrown.
+         */
+        traceFunctionError(functionNodeId, error) {
+            if (!this.isTracing || !functionNodeId) return;
+
+            // 1. Capture the error state
+            window.glyphStateManager.captureVariableSnapshot(functionNodeId + '_error', { 
+                error: error
+            });
+
+            // 2. Create the ERROR_NODE (⚡)
+            const errorNodeId = this.generateNodeId();
+            const errorNode = {
+                id: errorNodeId,
+                type: "⚡", // ERROR_NODE
+                label: `Function Error: ${error.message}`,
+                timestamp: Date.now(),
+                properties: {
+                    error: error.message,
+                    stack: error.stack,
+                    port: 'error'
+                }
+            };
+            this.addNode(errorNode);
+            this.sendToDevTools('NODE_ADDED', errorNode);
+
+            // 3. Connect Function Node to Error Node using ERROR_FLOW (⚡)
+            this.addConnection(functionNodeId, errorNodeId, "⚡");
+            this.sendToDevTools('CONNECTION_ADDED', { from: functionNodeId, to: errorNodeId, type: "⚡" });
+        }
+        
+        // --- End of New Tracing Methods ---
+        
         captureSourceContext() {
             try {
                 const stack = new Error().stack;
