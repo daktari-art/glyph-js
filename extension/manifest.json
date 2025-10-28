@@ -3,6 +3,7 @@
   "name": "Glyph Language DevTools",
   "version": "1.0",
   "description": "Visual data flow programming environment and JavaScript-to-Glyph converter",
+  
   "devtools_page": "devtools.html",
   
   "permissions": [
@@ -32,11 +33,7 @@
   ],
   
   "web_accessible_resources": [{
-    "resources": ["glyph-runtime.js"],
+    "resources": ["panel.html", "panel.js"],
     "matches": ["<all_urls>"]
-  }],
-  
-  "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
-  }
+  }]
 }
