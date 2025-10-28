@@ -3,15 +3,18 @@ class GlyphDevToolsPanel {
         this.nodes = new Map();
         this.connections = [];
         this.isTracing = false;
+        this.currentTimePosition = 0;
+        this.executionHistory = [];
 
         this.initializeUI();
         this.setupMessageHandling();
         this.setupEventListeners();
+        this.addArrowMarker(); // Critical: Add SVG arrow markers for connections
 
         console.log('🔮 Glyph Language DevTools Panel initialized');
     }
 
-    // --- Compliance Helper Functions ---
+    // --- COMPLIANCE HELPER FUNCTIONS ---
     getNodeStyle(type) {
         const styles = {
             '🟦': { color: '#2196F3', label: 'DATA_NODE', glyph: '🟦' },
@@ -26,7 +29,6 @@ class GlyphDevToolsPanel {
             '📥': { color: '#00BCD4', label: 'INPUT_NODE', glyph: '📥' },
             '🟢': { color: '#4CAF50', label: 'OUTPUT_NODE', glyph: '🟢' },
             '🎯': { color: '#FFEB3B', label: 'EVENT_NODE', glyph: '🎯' },
-            // Legacy symbols for compatibility
             '○': { color: '#2196F3', label: 'DATA_NODE (Legacy)', glyph: '🟦' },
             '□': { color: '#4CAF50', label: 'TEXT_NODE (Legacy)', glyph: '🟩' },
             '▷': { color: '#1E88E5', label: 'FUNCTION_NODE (Legacy)', glyph: '🔷' },
@@ -54,32 +56,12 @@ class GlyphDevToolsPanel {
         };
         return styles[type] || { stroke: '#757575', dash: 'none' };
     }
-    // --- END OF HELPERS ---
 
-    initializeUI() {
-        this.executionGraph = document.getElementById('executionGraph');
-        this.glyphCanvas = document.getElementById('glyphCanvas');
-        this.emptyState = document.getElementById('emptyState');
-        this.status = document.getElementById('status');
-        this.stats = document.getElementById('stats');
-        // NEW: Add reference to the diagnosis output area
-        this.diagnosisOutput = document.getElementById('diagnosisOutput'); 
-
-        this.updateStats();
-        // Assuming addArrowMarker exists, or will be added later
-    }
-
-    setupMessageHandling() {
-        window.addEventListener('message', (event) => {
-            if (event.data.type === 'GLYPH_TRACER_DATA') {
-                this.handleTracerData(event.data.payload);
-            }
-        });
-    }
-
-    // --- CENTRALIZED COMMAND SENDER ---
+    // --- CRITICAL FIX: Message Passing Security Fix ---
     sendMessageToInspectedWindow(command) {
-        const code = `window.postMessage({ type: 'GLYPH_COMMAND', command: '${command}' }, '*');`;
+        // FIXED: Properly escape the command to prevent injection
+        const escapedCommand = command.replace(/'/g, "\\'");
+        const code = `window.postMessage({ type: 'GLYPH_COMMAND', command: '${escapedCommand}' }, '*');`;
 
         chrome.devtools.inspectedWindow.eval(code, (result, isException) => {
             if (isException) {
@@ -87,6 +69,47 @@ class GlyphDevToolsPanel {
                 this.status.textContent = `❌ ERROR: Communication failed. Try refreshing the page.`;
             } else if (command === 'START_TRACING') {
                 this.status.textContent = '🟢 Tracing Active...';
+            }
+        });
+    }
+
+    initializeUI() {
+        this.executionGraph = document.getElementById('executionGraph');
+        this.glyphCanvas = document.getElementById('glyphCanvas');
+        this.emptyState = document.getElementById('emptyState');
+        this.status = document.getElementById('status');
+        this.stats = document.getElementById('stats');
+        this.diagnosisOutput = document.getElementById('diagnosisOutput'); 
+        this.timeSlider = document.getElementById('timeSlider');
+
+        this.updateStats();
+    }
+
+    // --- CRITICAL: Add SVG Arrow Markers for Connections ---
+    addArrowMarker() {
+        const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        
+        marker.setAttribute('id', 'arrowhead');
+        marker.setAttribute('markerWidth', '10');
+        marker.setAttribute('markerHeight', '7');
+        marker.setAttribute('refX', '9');
+        marker.setAttribute('refY', '3.5');
+        marker.setAttribute('orient', 'auto');
+        
+        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+        polygon.setAttribute('fill', '#4CAF50');
+        
+        marker.appendChild(polygon);
+        defs.appendChild(marker);
+        this.glyphCanvas.appendChild(defs);
+    }
+
+    setupMessageHandling() {
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'GLYPH_TRACER_DATA') {
+                this.handleTracerData(event.data.payload);
             }
         });
     }
@@ -108,6 +131,19 @@ class GlyphDevToolsPanel {
             this.exportAsGlyph();
         });
 
+        // Time Travel Controls
+        document.getElementById('prevStep')?.addEventListener('click', () => {
+            this.timeTravelStep(-1);
+        });
+
+        document.getElementById('nextStep')?.addEventListener('click', () => {
+            this.timeTravelStep(1);
+        });
+
+        this.timeSlider?.addEventListener('input', (e) => {
+            this.timeTravelTo(parseInt(e.target.value));
+        });
+
         const closeInspectorBtn = document.getElementById('closeInspector');
         if (closeInspectorBtn) {
             closeInspectorBtn.addEventListener('click', () => {
@@ -124,7 +160,7 @@ class GlyphDevToolsPanel {
             });
         }
 
-        // NEW: Diagnosis Button Listener
+        // Diagnosis Button Listener
         const diagnoseBtn = document.getElementById('runDiagnosis');
         if (diagnoseBtn) {
             diagnoseBtn.addEventListener('click', () => {
@@ -133,15 +169,155 @@ class GlyphDevToolsPanel {
         }
     }
 
-    // NEW: Diagnosis Method
+    // --- MISSING IMPLEMENTATION: Graph Layout Engine ---
+    autoLayoutNodes() {
+        const nodesArray = Array.from(this.nodes.values());
+        if (nodesArray.length === 0) return;
+
+        const container = this.executionGraph.getBoundingClientRect();
+        const centerX = container.width / 2;
+        const centerY = container.height / 2;
+        const radius = Math.min(container.width, container.height) * 0.35;
+        
+        // Circular layout for better visualization
+        nodesArray.forEach((node, index) => {
+            const angle = (index / nodesArray.length) * 2 * Math.PI;
+            const x = centerX + radius * Math.cos(angle) - 40;
+            const y = centerY + radius * Math.sin(angle) - 20;
+            
+            node.position = { x, y };
+            node.element.style.left = `${x}px`;
+            node.element.style.top = `${y}px`;
+        });
+
+        this.redrawAllConnections();
+    }
+
+    // --- MISSING IMPLEMENTATION: Connection Visualization ---
+    redrawAllConnections() {
+        const svg = this.glyphCanvas;
+        // Clear existing connections but keep arrow markers
+        const existingLines = svg.querySelectorAll('line');
+        existingLines.forEach(line => line.remove());
+        
+        this.connections.forEach(conn => {
+            const fromNode = this.nodes.get(conn.from);
+            const toNode = this.nodes.get(conn.to);
+            
+            if (fromNode && toNode && fromNode.position && toNode.position) {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                const style = this.getConnectionStyle(conn.type);
+                
+                // Calculate connection points (center of nodes)
+                const fromX = fromNode.position.x + 40;
+                const fromY = fromNode.position.y + 20;
+                const toX = toNode.position.x + 40;
+                const toY = toNode.position.y + 20;
+                
+                line.setAttribute('x1', fromX);
+                line.setAttribute('y1', fromY);
+                line.setAttribute('x2', toX);
+                line.setAttribute('y2', toY);
+                line.setAttribute('stroke', style.stroke);
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('stroke-dasharray', style.dash);
+                line.setAttribute('marker-end', 'url(#arrowhead)');
+                line.setAttribute('class', 'connection-line');
+                
+                svg.appendChild(line);
+            }
+        });
+    }
+
+    // --- MISSING IMPLEMENTATION: Drag and Drop ---
+    makeDraggable(nodeElement) {
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+        
+        nodeElement.onmousedown = dragMouseDown;
+
+        function dragMouseDown(e) {
+            e = e || window.event;
+            e.preventDefault();
+            // get the mouse cursor position at startup
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            document.onmousemove = elementDrag;
+        }
+
+        function elementDrag(e) {
+            e = e || window.event;
+            e.preventDefault();
+            // calculate the new cursor position
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            // set the element's new position
+            const node = window.glyphPanel.nodes.get(nodeElement.id);
+            if (node) {
+                node.position.x = (nodeElement.offsetLeft - pos1);
+                node.position.y = (nodeElement.offsetTop - pos2);
+                nodeElement.style.top = node.position.y + "px";
+                nodeElement.style.left = node.position.x + "px";
+                
+                // Redraw connections when node moves
+                window.glyphPanel.redrawAllConnections();
+            }
+        }
+
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    }
+
+    // --- TIME TRAVEL FUNCTIONALITY (Inspired by error-time-travel.html) ---
+    timeTravelStep(direction) {
+        const steps = Array.from(this.nodes.values()).map(n => n.data.timestamp).sort((a, b) => a - b);
+        if (steps.length === 0) return;
+
+        this.currentTimePosition = Math.max(0, Math.min(steps.length - 1, this.currentTimePosition + direction));
+        this.timeTravelToPosition(this.currentTimePosition);
+    }
+
+    timeTravelTo(position) {
+        const steps = Array.from(this.nodes.values()).map(n => n.data.timestamp).sort((a, b) => a - b);
+        if (steps.length === 0) return;
+
+        this.currentTimePosition = Math.max(0, Math.min(steps.length - 1, Math.round(position * (steps.length - 1) / 100)));
+        this.timeTravelToPosition(this.currentTimePosition);
+    }
+
+    timeTravelToPosition(position) {
+        const steps = Array.from(this.nodes.values()).map(n => ({...n, timestamp: n.data.timestamp})).sort((a, b) => a.timestamp - b.timestamp);
+        
+        // Update UI to show current time position
+        this.nodes.forEach((node, id) => {
+            const nodeIndex = steps.findIndex(s => s.data.id === id);
+            if (nodeIndex <= position) {
+                node.element.style.opacity = '1';
+                node.element.style.boxShadow = nodeIndex === position ? '0 0 10px 3px #FFEB3B' : '0 2px 5px rgba(0, 0, 0, 0.5)';
+            } else {
+                node.element.style.opacity = '0.3';
+                node.element.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.2)';
+            }
+        });
+
+        this.status.textContent = `⏰ Time Travel: Step ${position + 1} of ${steps.length}`;
+        if (this.timeSlider) {
+            this.timeSlider.value = (position / Math.max(1, steps.length - 1)) * 100;
+        }
+    }
+
+    // --- DIAGNOSIS FUNCTIONALITY ---
     runDiagnosis() {
         this.status.textContent = '🧠 Running Automated Diagnosis...';
         this.diagnosisOutput.innerHTML = '<p style="color: #FFC107; padding: 5px; font-size: 12px;">Waiting for analysis results...</p>';
-        // Send the command that the content script and Analyzer Utility will listen for.
         this.sendMessageToInspectedWindow('RUN_DIAGNOSIS');
     }
 
-    // --- TRACING START/STOP (Uses the corrected sendMessageToInspectedWindow) ---
+    // --- TRACING CONTROL ---
     startTracing() {
         if (this.isTracing) return;
         this.isTracing = true;
@@ -183,7 +359,6 @@ class GlyphDevToolsPanel {
             case 'CONNECTION_ADDED':
                 this.addConnectionToGraph(payload.data);
                 break;
-            // NEW: Handle the diagnosis result sent from the content script
             case 'DIAGNOSIS_RESULT':
                 this.displaySolutions(payload.data);
                 this.status.textContent = `✅ Diagnosis complete. ${payload.data.length} potential issues found.`;
@@ -192,15 +367,14 @@ class GlyphDevToolsPanel {
 
         this.updateStats();
         this.hideEmptyState();
-        // Assuming autoLayoutNodes exists, or will be added later
+        this.autoLayoutNodes(); // Auto-layout when new nodes are added
     }
 
-    // NEW: Display Solutions Method
     displaySolutions(diagnosisResults) {
         const output = this.diagnosisOutput;
         if (!output) return;
 
-        output.innerHTML = ''; // Clear previous results
+        output.innerHTML = '';
 
         if (diagnosisResults.length === 0) {
             output.innerHTML = '<p style="color: #4CAF50; padding: 5px; font-size: 12px;">✅ Automated analysis found no critical issues.</p>';
@@ -214,7 +388,6 @@ class GlyphDevToolsPanel {
             diagElement.style.padding = '5px';
             diagElement.style.marginBottom = '5px';
 
-            // Assuming result structure: { type, solution, timestamp }
             diagElement.innerHTML = `
                 <h4 style="color: #FFC107; margin-bottom: 5px; font-size: 14px;">[ISSUE ${index + 1}] ${result.type}</h4>
                 <p style="margin-left: 10px; font-size: 0.9em;"><strong>Solution:</strong> ${result.solution}</p>
@@ -223,18 +396,27 @@ class GlyphDevToolsPanel {
             output.appendChild(diagElement);
         });
     }
-    
-    // --- GRAPH MANIPULATION METHODS ---
 
+    // --- GRAPH MANIPULATION METHODS ---
     addNodeToGraph(nodeData) {
         if (this.nodes.has(nodeData.id)) return;
 
         const nodeElement = this.createNodeElement(nodeData);
-        this.nodes.set(nodeData.id, { element: nodeElement, data: nodeData, position: { x: 0, y: 0 } });
+        const nodeObj = { 
+            element: nodeElement, 
+            data: nodeData, 
+            position: { x: Math.random() * 400, y: Math.random() * 300 } 
+        };
+        
+        this.nodes.set(nodeData.id, nodeObj);
         this.executionGraph.appendChild(nodeElement);
 
-        // Placeholder for layout function
-        // this.autoLayoutNodes(); 
+        // Store in execution history for time travel
+        this.executionHistory.push({
+            type: 'NODE_ADDED',
+            data: nodeData,
+            timestamp: Date.now()
+        });
     }
 
     createNodeElement(nodeData) {
@@ -243,35 +425,43 @@ class GlyphDevToolsPanel {
         node.id = nodeData.id;
         node.className = 'node';
         node.style.borderColor = style.borderColor;
-        node.style.backgroundColor = style.backgroundColor + '60'; // Semi-transparent background
+        node.style.backgroundColor = style.backgroundColor + '60';
+        node.style.left = `${Math.random() * 400}px`;
+        node.style.top = `${Math.random() * 300}px`;
 
         node.innerHTML = `
             <div>${style.glyph} ${nodeData.label.substring(0, 30)}...</div>
             <div style="font-size: 10px; color: #d0d0d0; margin-top: 2px;">${new Date(nodeData.timestamp).toLocaleTimeString()}</div>
         `;
 
-        // Assuming makeDraggable is defined elsewhere or will be added
-        // this.makeDraggable(node); 
+        this.makeDraggable(node);
         return node;
     }
 
     addConnectionToGraph(connData) {
         this.connections.push(connData);
-        // Assuming redrawAllConnections is defined elsewhere or will be added
-        // this.redrawAllConnections(); 
+        this.redrawAllConnections();
+
+        // Store in execution history
+        this.executionHistory.push({
+            type: 'CONNECTION_ADDED',
+            data: connData,
+            timestamp: Date.now()
+        });
     }
 
     clearGraph() {
         this.nodes.forEach(node => node.element.remove());
         this.nodes.clear();
         this.connections = [];
-        // Assuming redrawAllConnections exists...
+        this.redrawAllConnections();
         this.showEmptyState();
         this.updateStats();
         document.getElementById('glyphInspector').style.display = 'none';
         this.status.textContent = 'Graph Cleared.';
+        this.currentTimePosition = 0;
+        this.executionHistory = [];
         
-        // Clear diagnosis output on clear
         if (this.diagnosisOutput) {
             this.diagnosisOutput.innerHTML = '<p style="font-size: 12px; color: #9e9e9e;">Click "🧠 Diagnose" to run the tracer analysis.</p>';
         }
@@ -282,7 +472,6 @@ class GlyphDevToolsPanel {
         const content = document.getElementById('inspectorContent');
         inspector.style.display = 'flex';
         
-        // Format properties for display
         let propertiesHtml = '';
         for (const key in nodeData.properties) {
             propertiesHtml += `
@@ -304,10 +493,7 @@ class GlyphDevToolsPanel {
             id: n.data.id,
             type: n.data.type,
             label: n.data.label,
-            position: {
-                x: parseInt(n.element.style.left) || 0,
-                y: parseInt(n.element.style.top) || 0
-            },
+            position: n.position,
             properties: n.data.properties || {}
         }));
 
@@ -352,7 +538,7 @@ class GlyphDevToolsPanel {
     }
 }
 
-// Initialize when panel loads
+// Initialize when panel loads and expose globally for drag functionality
 document.addEventListener('DOMContentLoaded', () => {
-    new GlyphDevToolsPanel();
+    window.glyphPanel = new GlyphDevToolsPanel();
 });
