@@ -1,3 +1,4 @@
+// --- NEW, FULLY COMPLIANT content-script.js (with new symbols) ---
 // Glyph Language Tracer - Content Script
 (function() {
     'use strict';
@@ -22,16 +23,15 @@
         }
         
         setupTracing() {
-            console.log('🔮 Setting up Glyph tracing...');
-            
-            // Check if state manager is available
-            if (window.glyphStateManager) {
+            // Check if state manager is available (via manifest.json injection)
+            if (window.GlyphStateManager) {
+                // Instantiate the global state manager if not already done
+                window.glyphStateManager = window.glyphStateManager || new window.GlyphStateManager();
                 console.log('🔮 State manager available - enhanced tracing enabled');
             } else {
                 console.warn('🔮 State manager not available - basic tracing only');
             }
             
-            // Wrap async operations
             this.wrapAsyncOperations();
             this.catchErrors();
             
@@ -52,7 +52,7 @@
                 
                 // Use state manager if available
                 if (window.glyphStateManager) {
-                    window.glyphStateManager.mapSourceLocation(callId, sourceContext);
+                    window.glyphStateManager.mapSourceLocation(callId, sourceContext); 
                     window.glyphStateManager.captureVariableSnapshot(callId + '_start', {
                         arguments: args,
                         functionName: 'fetch'
@@ -61,14 +61,14 @@
                 
                 const fetchNode = {
                     id: callId,
-                    type: "🔄",
+                    type: "🔶", // NEW: ASYNC_NODE Glyph
                     label: `fetch("${args[0]}")`,
                     timestamp: Date.now(),
                     properties: {
                         url: args[0],
                         method: args[1]?.method || 'GET',
                         source: sourceContext,
-                        executionId: callId  // For state manager lookup
+                        executionId: callId  
                     }
                 };
                 
@@ -77,7 +77,6 @@
                 
                 return originalFetch.apply(this, args)
                     .then(response => {
-                        // Use state manager if available
                         if (window.glyphStateManager) {
                             window.glyphStateManager.captureVariableSnapshot(callId + '_response', {
                                 returnValue: response,
@@ -87,7 +86,7 @@
                         
                         const successNode = {
                             id: this.generateNodeId(),
-                            type: "⤶",
+                            type: "🟢", // NEW: OUTPUT_NODE Glyph
                             label: `Response ${response.status}`,
                             timestamp: Date.now(),
                             properties: {
@@ -98,13 +97,13 @@
                         };
                         
                         this.addNode(successNode);
-                        this.addConnection(callId, successNode.id, "→");
+                        this.addConnection(callId, successNode.id, "→"); // NEW: DATA_FLOW
                         this.sendToDevTools('NODE_ADDED', successNode);
+                        this.sendToDevTools('CONNECTION_ADDED', { from: callId, to: successNode.id, type: "→" });
                         
                         return response;
                     })
                     .catch(error => {
-                        // Use state manager if available
                         if (window.glyphStateManager) {
                             window.glyphStateManager.captureVariableSnapshot(callId + '_error', {
                                 error: error,
@@ -114,7 +113,7 @@
                         
                         const errorNode = {
                             id: this.generateNodeId(),
-                            type: "⚡",
+                            type: "🟥", // NEW: ERROR_NODE Glyph
                             label: `Fetch Error: ${error.message}`,
                             timestamp: Date.now(),
                             properties: {
@@ -124,14 +123,14 @@
                         };
                         
                         this.addNode(errorNode);
-                        this.addConnection(callId, errorNode.id, "⚡");
+                        this.addConnection(callId, errorNode.id, "⤵️"); // NEW: ERROR_FLOW
                         this.sendToDevTools('NODE_ADDED', errorNode);
-                        
+                        this.sendToDevTools('CONNECTION_ADDED', { from: callId, to: errorNode.id, type: "⤵️" });
+
                         throw error;
                     });
             };
             
-            // Wrap setTimeout
             this.wrapTimer('setTimeout');
             this.wrapTimer('setInterval');
         }
@@ -144,7 +143,6 @@
                 const callId = this.generateNodeId();
                 const sourceContext = this.captureSourceContext();
                 
-                // Use state manager if available
                 if (window.glyphStateManager) {
                     window.glyphStateManager.mapSourceLocation(callId, sourceContext);
                     window.glyphStateManager.captureVariableSnapshot(callId + '_setup', {
@@ -155,7 +153,7 @@
                 
                 const timerNode = {
                     id: callId,
-                    type: "🔄",
+                    type: "🔶", // NEW: ASYNC_NODE Glyph
                     label: `${timerName}(${delay}ms)`,
                     timestamp: Date.now(),
                     properties: {
@@ -170,7 +168,6 @@
                 this.sendToDevTools('NODE_ADDED', timerNode);
                 
                 const wrappedCallback = (...cbArgs) => {
-                    // Use state manager if available
                     if (window.glyphStateManager) {
                         window.glyphStateManager.captureVariableSnapshot(callId + '_callback', {
                             arguments: cbArgs,
@@ -180,7 +177,7 @@
                     
                     const resultNode = {
                         id: this.generateNodeId(),
-                        type: "⤶",
+                        type: "🟢", // NEW: OUTPUT_NODE Glyph
                         label: `Timer Executed`,
                         timestamp: Date.now(),
                         properties: {
@@ -189,8 +186,9 @@
                     };
                     
                     this.addNode(resultNode);
-                    this.addConnection(callId, resultNode.id, "→");
+                    this.addConnection(callId, resultNode.id, "→"); // NEW: DATA_FLOW
                     this.sendToDevTools('NODE_ADDED', resultNode);
+                    this.sendToDevTools('CONNECTION_ADDED', { from: callId, to: resultNode.id, type: "→" });
                     
                     return callback.apply(this, cbArgs);
                 };
@@ -200,13 +198,14 @@
         }
         
         catchErrors() {
+            // ... (Global error listeners using NEW: 🟥 Glyph)
             window.addEventListener('error', (event) => {
                 if (!this.isTracing) return;
                 
                 const errorNode = {
                     id: this.generateNodeId(),
-                    type: "⚡",
-                    label: `Error: ${event.message}`,
+                    type: "🟥", // NEW: ERROR_NODE Glyph
+                    label: `Global Error: ${event.message}`,
                     timestamp: Date.now(),
                     properties: {
                         message: event.message,
@@ -224,7 +223,7 @@
                 
                 const errorNode = {
                     id: this.generateNodeId(),
-                    type: "⚡",
+                    type: "🟥", // NEW: ERROR_NODE Glyph
                     label: `Unhandled Promise: ${event.reason?.message || String(event.reason)}`,
                     timestamp: Date.now(),
                     properties: {
@@ -237,171 +236,8 @@
             });
         }
         
-        // --- New Tracing Methods for Generic Functions ---
-
-        /**
-         * Determines the correct Glyph symbol for a given data type.
-         * @param {any} data - The data value.
-         * @returns {string} The appropriate Glyph symbol.
-         */
-        getGlyphForData(data) {
-            const type = typeof data;
-            if (Array.isArray(data)) return "△"; // LIST_NODE
-            if (type === 'boolean') return "◇"; // BOOL_NODE
-            if (type === 'string') return "□";  // TEXT_NODE
-            return "○"; // DATA_NODE (default for numbers/objects)
-        }
-
-        /**
-         * Marks the beginning of a traced function call.
-         * Creates the input data nodes and the function node.
-         * @param {string} functionName - The name of the function being called.
-         * @param {Array<any>} args - The arguments passed to the function.
-         * @returns {{functionNodeId: string, inputNodeIds: Array<string>}} IDs for the function and input nodes.
-         */
-        traceFunctionStart(functionName, args) {
-            if (!this.isTracing || !window.glyphStateManager) {
-                return { functionNodeId: null, inputNodeIds: [] };
-            }
-
-            // 1. Capture the state and source location before execution
-            const sourceContext = this.captureSourceContext();
-            
-            // Use a unique execution ID for the state manager
-            const executionId = window.glyphStateManager.captureVariableSnapshot(this.generateNodeId(), { 
-                arguments: args, 
-                functionName: functionName,
-                thisValue: this 
-            });
-            
-            // 2. Create the FUNCTION_NODE (▷)
-            const functionNodeId = this.generateNodeId();
-            const functionNode = {
-                id: functionNodeId,
-                type: "▷", // FUNCTION_NODE
-                label: functionName,
-                timestamp: Date.now(),
-                properties: {
-                    source: sourceContext,
-                    executionId: executionId,  // For state manager lookup
-                    type: 'function_call'
-                }
-            };
-            this.addNode(functionNode);
-            window.glyphStateManager.mapSourceLocation(functionNodeId, sourceContext);
-
-            const inputNodeIds = [];
-
-            // 3. Create DATA_NODE for each argument (Input Data Flow)
-            args.forEach((arg, index) => {
-                const inputNodeId = this.generateNodeId();
-                const nodeGlyph = this.getGlyphForData(arg);
-                
-                const label = (typeof arg !== 'object' || arg === null) 
-                    ? String(arg).substring(0, 15) : (Array.isArray(arg) ? 'List' : 'Data');
-
-                const inputNode = {
-                    id: inputNodeId,
-                    type: nodeGlyph, 
-                    label: `Input ${index} (${label})`,
-                    timestamp: Date.now(),
-                    properties: { 
-                        value: window.glyphStateManager.sanitizeData(arg),
-                        executionId: executionId,
-                        port: `input_${index}`
-                    }
-                };
-                this.addNode(inputNode);
-                this.sendToDevTools('NODE_ADDED', inputNode);
-                
-                // Connect Input Node to Function Node (→)
-                this.addConnection(inputNodeId, functionNodeId, "→");
-                this.sendToDevTools('CONNECTION_ADDED', { from: inputNodeId, to: functionNodeId, type: "→" });
-                inputNodeIds.push(inputNodeId);
-            });
-
-            this.sendToDevTools('NODE_ADDED', functionNode);
-            
-            return { functionNodeId, inputNodeIds };
-        }
-
-        /**
-         * Marks the successful end of a traced function call.
-         * Creates the output data node and connects it to the function node.
-         * @param {string} functionNodeId - The ID of the function node created in traceFunctionStart.
-         * @param {any} result - The return value of the function.
-         */
-        traceFunctionEnd(functionNodeId, result) {
-            if (!this.isTracing || !window.glyphStateManager || !functionNodeId) {
-                return;
-            }
-            
-            // 1. Capture the final state (return value)
-            window.glyphStateManager.captureVariableSnapshot(functionNodeId + '_end', { 
-                returnValue: result 
-            });
-
-            // 2. Create the DATA_NODE for the result (Output Data Flow)
-            const resultNodeId = this.generateNodeId();
-            const resultGlyph = this.getGlyphForData(result);
-            
-            const resultNode = {
-                id: resultNodeId,
-                type: resultGlyph,
-                label: "Result",
-                timestamp: Date.now(),
-                properties: { 
-                    value: window.glyphStateManager.sanitizeData(result), 
-                    type: typeof result,
-                    port: 'return'
-                }
-            };
-            this.addNode(resultNode);
-            this.sendToDevTools('NODE_ADDED', resultNode);
-            
-            // 3. Connect Function Node to Result Node (→)
-            this.addConnection(functionNodeId, resultNodeId, "→");
-            this.sendToDevTools('CONNECTION_ADDED', { from: functionNodeId, to: resultNodeId, type: "→" });
-        }
-
-        /**
-         * Marks a function error (similar to catchErrors, but attached to a specific function node).
-         * Creates an error node and connects it with the error flow (⚡).
-         * @param {string} functionNodeId - The ID of the function node.
-         * @param {Error} error - The error object thrown.
-         */
-        traceFunctionError(functionNodeId, error) {
-            if (!this.isTracing || !functionNodeId) return;
-
-            // 1. Capture the error state
-            window.glyphStateManager.captureVariableSnapshot(functionNodeId + '_error', { 
-                error: error
-            });
-
-            // 2. Create the ERROR_NODE (⚡)
-            const errorNodeId = this.generateNodeId();
-            const errorNode = {
-                id: errorNodeId,
-                type: "⚡", // ERROR_NODE
-                label: `Function Error: ${error.message}`,
-                timestamp: Date.now(),
-                properties: {
-                    error: error.message,
-                    stack: error.stack,
-                    port: 'error'
-                }
-            };
-            this.addNode(errorNode);
-            this.sendToDevTools('NODE_ADDED', errorNode);
-
-            // 3. Connect Function Node to Error Node using ERROR_FLOW (⚡)
-            this.addConnection(functionNodeId, errorNodeId, "⚡");
-            this.sendToDevTools('CONNECTION_ADDED', { from: functionNodeId, to: errorNodeId, type: "⚡" });
-        }
-        
-        // --- End of New Tracing Methods ---
-        
         captureSourceContext() {
+            // ... (Source context remains the same)
             try {
                 const stack = new Error().stack;
                 const stackLines = stack.split('\n');
@@ -413,13 +249,14 @@
                     }
                 }
             } catch (e) {
-                // Fallback if stack parsing fails
+                // Fallback
             }
             
             return { fileName: 'unknown', lineNumber: 0, columnNumber: 0, functionName: 'anonymous' };
         }
         
         parseStackLine(stackLine) {
+            // ... (Stack parsing remains the same)
             const match = stackLine.match(/at (.+?) \((.+):(\d+):(\d+)\)/);
             if (match) {
                 return {
@@ -475,7 +312,7 @@
     // Initialize the tracer
     const glyphTracer = new GlyphLanguageTracer();
     
-    // Listen for messages from DevTools panel
+    // Listen for messages from DevTools panel (This is where the 'START_TRACING' command is received)
     window.addEventListener('message', (event) => {
         if (event.data.type === 'GLYPH_COMMAND') {
             if (event.data.command === 'START_TRACING') {
