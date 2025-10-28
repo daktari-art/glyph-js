@@ -52,130 +52,109 @@
             flex-wrap: wrap;
             gap: 10px;
         }
+
+        /* NEW: Styles for the Analysis section */
+        .analysis-section {
+            padding: 15px;
+            border-bottom: 1px solid #404040;
+            flex-grow: 1; /* Allows it to take up remaining vertical space */
+            overflow-y: auto;
+        }
         
         .btn {
-            background: #3f51b5;
+            background-color: #2196F3;
             color: white;
-            border: none;
             padding: 8px 12px;
-            cursor: pointer;
+            border: none;
             border-radius: 4px;
+            cursor: pointer;
             font-size: 14px;
-            transition: background 0.3s, opacity 0.3s;
+            transition: background-color 0.2s;
         }
         
         .btn:hover:not(:disabled) {
-            background: #5c6bc0;
+            background-color: #1565C0;
         }
-
+        
         .btn:disabled {
-            cursor: not-allowed;
             opacity: 0.5;
+            cursor: not-allowed;
         }
         
         .btn-danger {
-            background: #f44336;
-        }
-        .btn-danger:hover:not(:disabled) {
-            background: #e57373;
+            background-color: #F44336;
         }
         
         .btn-success {
-            background: #4caf50;
+            background-color: #4CAF50;
         }
-        .btn-success:hover:not(:disabled) {
-            background: #81c784;
-        }
-
+        
         .legend {
             padding: 15px;
             border-bottom: 1px solid #404040;
-            flex-grow: 1;
+            font-size: 12px;
         }
-
-        .legend h4 {
-            margin-bottom: 10px;
-            color: #bdbdbd;
-            font-weight: 500;
-        }
-
+        
         .legend-item {
             display: flex;
             align-items: center;
             margin-bottom: 5px;
-            font-size: 12px;
         }
-
+        
         .legend-color {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            margin-right: 10px;
-            border: 1px solid #333;
+            margin-right: 8px;
         }
         
         .status-bar {
             padding: 15px;
             background: #2d2d2d;
-            border-top: 1px solid #404040;
+            color: #b0b0b0;
             font-size: 12px;
-            color: #9e9e9e;
+            border-top: 1px solid #404040;
+            margin-top: auto;
         }
-
-        /* --- Graph Styling --- */
+        
         .execution-graph {
-            position: relative;
             flex: 1;
-            overflow: auto;
-            min-height: 100%;
+            position: relative;
+            overflow: hidden;
         }
-
+        
+        .node {
+            position: absolute;
+            background: #333;
+            color: white;
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+            cursor: move;
+            text-align: center;
+            font-size: 12px;
+            min-width: 80px;
+            border: 2px solid;
+            transition: box-shadow 0.1s;
+            z-index: 10;
+        }
+        
+        .node:hover {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.7);
+        }
+        
+        .node.selected {
+            box-shadow: 0 0 10px 3px #FFEB3B;
+            z-index: 11;
+        }
+        
         #glyphCanvas {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%; 
+            width: 100%;
             height: 100%;
-            pointer-events: none;
-        }
-
-        .node {
-            position: absolute;
-            min-width: 140px; 
-            min-height: 60px;
-            padding: 5px;
-            border-radius: 6px;
-            cursor: pointer;
-            text-align: center;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-            border: 2px solid;
-            transition: box-shadow 0.2s, transform 0.2s;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: #fff;
-            font-size: 12px;
-        }
-        
-        .node:hover {
-            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
-            transform: scale(1.05);
-            z-index: 10;
-        }
-        
-        .glyph-icon {
-            font-size: 24px;
-            line-height: 1;
-        }
-
-        .node-label {
-            font-weight: bold;
-            margin-top: 2px;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            z-index: 5;
         }
         
         .empty-state {
@@ -184,62 +163,61 @@
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            color: #616161;
+            color: #666;
         }
         
-        /* --- Inspector Styling --- */
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+
         #glyphInspector {
-            position: absolute;
-            top: 20px;
+            position: fixed;
+            top: 50px;
             right: 20px;
             width: 350px;
-            max-height: 90vh;
-            background: #2d2d2d;
+            max-height: calc(100vh - 70px);
+            background: #1e1e1e;
             border: 1px solid #404040;
-            border-radius: 6px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
-            z-index: 20;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.7);
+            z-index: 100;
             display: none;
             flex-direction: column;
+            border-radius: 8px;
             overflow: hidden;
         }
-        
+
         .inspector-header {
+            padding: 10px 15px;
+            background: #3a3a3a;
+            color: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 15px;
-            background: #333;
-            border-bottom: 1px solid #404040;
-            color: white;
+            border-bottom: 1px solid #555;
         }
-        
+
         #inspectorContent {
             padding: 15px;
-            font-size: 12px;
+            font-size: 13px;
             overflow-y: auto;
+            max-height: calc(100% - 40px);
         }
-        
-        .inspector-section {
-            margin-bottom: 15px;
-            padding-bottom: 10px;
+
+        #inspectorContent h4 {
+            margin-top: 10px;
+            color: #FFC107;
             border-bottom: 1px dashed #404040;
+            padding-bottom: 3px;
         }
-        
-        .inspector-section:last-child {
-            border-bottom: none;
-            padding-bottom: 0;
-            margin-bottom: 0;
-        }
-        
+
         #inspectorContent pre {
-            background: #1a1a1a;
+            background: #282828;
             padding: 8px;
             border-radius: 4px;
             overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
             margin-top: 5px;
-            font-size: 10px;
-            color: #ccc;
         }
     </style>
 </head>
@@ -256,6 +234,9 @@
             <div class="controls">
                 <button class="btn" id="startTracing">▶ Start Tracing</button>
                 <button class="btn btn-danger" id="stopTracing" disabled style="opacity: 0.5;">⏹ Stop</button>
+                
+                <button class="btn" id="runDiagnosis" style="background-color: #FF9800;">🧠 Diagnose</button> 
+                
                 <button class="btn" id="clearGraph">🗑 Clear</button>
                 <button class="btn btn-success" id="exportGlyph">💾 Export .glyph</button>
             </div>
@@ -281,6 +262,13 @@
                 <div class="legend-item">
                     <div class="legend-color" style="background: #00BCD4;"></div>
                     <span>📥❓ Input & Control Flow</span>
+                </div>
+            </div>
+            
+            <div class="analysis-section">
+                <h4 style="border-bottom: 1px solid #404040; padding-bottom: 5px; margin-bottom: 10px;">Automated Analysis</h4>
+                <div id="diagnosisOutput">
+                    <p style="font-size: 12px; color: #9e9e9e;">Click "🧠 Diagnose" to run the tracer analysis.</p>
                 </div>
             </div>
             
