@@ -1,4 +1,4 @@
-{
+l{
   "manifest_version": 3,
   "name": "Glyph Language DevTools",
   "version": "1.0",
@@ -24,7 +24,7 @@
     {
       "matches": ["<all_urls>"],
       "js": [
-        "runtime/state-manager.js",  // ← ADD THIS FIRST
+        "runtime/state-manager.js",
         "content-script.js"
       ],
       "run_at": "document_start"
@@ -34,5 +34,9 @@
   "web_accessible_resources": [{
     "resources": ["glyph-runtime.js"],
     "matches": ["<all_urls>"]
-  }]
+  }],
+  
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
 }
