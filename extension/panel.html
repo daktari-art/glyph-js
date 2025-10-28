@@ -219,6 +219,53 @@
             word-break: break-all;
             margin-top: 5px;
         }
+        
+        /* ADD TIME TRAVEL CONTROLS STYLING */
+        .time-travel-controls {
+            padding: 10px 15px;
+            border-bottom: 1px solid #404040;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: #252525;
+        }
+        
+        .time-slider {
+            flex: 1;
+            height: 6px;
+            background: #404040;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .time-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #2196F3;
+            cursor: pointer;
+        }
+        
+        .time-travel-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .time-travel-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .connection-line {
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -239,6 +286,13 @@
                 
                 <button class="btn" id="clearGraph">🗑 Clear</button>
                 <button class="btn btn-success" id="exportGlyph">💾 Export .glyph</button>
+            </div>
+            
+            <!-- ADD TIME TRAVEL CONTROLS -->
+            <div class="time-travel-controls">
+                <button class="time-travel-btn" id="prevStep">← Prev</button>
+                <input type="range" min="0" max="100" value="0" class="time-slider" id="timeSlider">
+                <button class="time-travel-btn" id="nextStep">Next →</button>
             </div>
             
             <div class="legend">
