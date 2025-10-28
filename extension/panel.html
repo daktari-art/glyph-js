@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -36,6 +37,7 @@
             display: flex;
             flex-direction: column;
             background: #1a1a1a;
+            overflow: auto; /* Allow scrolling for the graph area */
         }
         
         .header {
@@ -47,151 +49,134 @@
         .controls {
             padding: 15px;
             border-bottom: 1px solid #404040;
-        }
-        
-        .glyph-palette {
-            padding: 15px;
-            border-bottom: 1px solid #404040;
-            flex-shrink: 0;
-        }
-        
-        .palette-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-top: 10px;
-        }
-        
-        .glyph-item {
-            padding: 8px;
-            text-align: center;
-            background: #404040;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 18px;
-        }
-        
-        .glyph-item:hover {
-            background: #505050;
-        }
-        
-        .execution-graph {
-            flex: 1;
-            position: relative;
-            overflow: auto;
-            background: #1a1a1a;
-        }
-        
-        .node {
-            position: absolute;
-            min-width: 120px;
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            font-size: 20px;
-            cursor: move;
-            user-select: none;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            border: 2px solid transparent;
-            transition: all 0.2s ease;
-        }
-        
-        .node:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-        }
-        
-        .node-data { background: #2e7d32; border-color: #4caf50; }
-        .node-async { background: #1565c0; border-color: #1976d2; }
-        .node-function { background: #6a1b9a; border-color: #8e24aa; }
-        .node-error { background: #c62828; border-color: #f44336; }
-        .node-output { background: #ff6f00; border-color: #ff9800; }
-        .node-input { background: #00695c; border-color: #009688; }
-        
-        .node-label {
-            font-size: 12px;
-            margin-top: 5px;
-            word-break: break-word;
-            color: rgba(255, 255, 255, 0.9);
-        }
-        
-        .connection {
-            stroke: #64b5f6;
-            stroke-width: 2;
-            marker-end: url(#arrowhead);
-            opacity: 0.7;
-        }
-        
-        .connection-error {
-            stroke: #f44336;
-            stroke-dasharray: 5,5;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         
         .btn {
-            padding: 8px 16px;
-            background: #1976d2;
+            background: #3f51b5;
             color: white;
             border: none;
-            border-radius: 4px;
+            padding: 8px 12px;
             cursor: pointer;
-            margin-right: 8px;
-            margin-bottom: 8px;
-            font-size: 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: background 0.3s, opacity 0.3s;
         }
         
-        .btn:hover {
-            background: #1565c0;
+        .btn:hover:not(:disabled) {
+            background: #5c6bc0;
+        }
+
+        .btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
         }
         
         .btn-danger {
-            background: #d32f2f;
+            background: #f44336;
         }
-        
-        .btn-danger:hover {
-            background: #c62828;
+        .btn-danger:hover:not(:disabled) {
+            background: #e57373;
         }
         
         .btn-success {
-            background: #388e3c;
+            background: #4caf50;
         }
-        
-        .btn-success:hover {
-            background: #2e7d32;
+        .btn-success:hover:not(:disabled) {
+            background: #81c784;
         }
-        
-        .status-bar {
-            padding: 8px 15px;
-            background: #2d2d2d;
-            border-top: 1px solid #404040;
-            font-size: 12px;
-            color: #b0b0b0;
-        }
-        
+
         .legend {
             padding: 15px;
-            font-size: 12px;
+            border-bottom: 1px solid #404040;
+            flex-grow: 1; /* Pushes status bar to the bottom */
         }
-        
+
+        .legend h4 {
+            margin-bottom: 10px;
+            color: #bdbdbd;
+            font-weight: 500;
+        }
+
         .legend-item {
             display: flex;
             align-items: center;
-            margin-bottom: 8px;
+            margin-bottom: 5px;
+            font-size: 12px;
         }
-        
+
         .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 4px;
-            margin-right: 8px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            border: 1px solid #333;
         }
         
+        .status-bar {
+            padding: 15px;
+            background: #2d2d2d;
+            border-top: 1px solid #404040;
+            font-size: 12px;
+            color: #9e9e9e;
+        }
+
+        /* --- Graph Styling --- */
+        .execution-graph {
+            position: relative;
+            flex: 1;
+            overflow: auto;
+            min-height: 100%;
+        }
+
         #glyphCanvas {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
+            width: 100%; 
             height: 100%;
-            pointer-events: none;
+            pointer-events: none; /* Allows clicks to pass through to nodes */
+        }
+
+        .node {
+            position: absolute;
+            min-width: 140px; 
+            min-height: 60px;
+            padding: 5px;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+            border: 2px solid;
+            transition: box-shadow 0.2s, transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-size: 12px;
+        }
+        
+        .node:hover {
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.6);
+            transform: scale(1.05);
+            z-index: 10;
+        }
+        
+        .glyph-icon {
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .node-label {
+            font-weight: bold;
+            margin-top: 2px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
         
         .empty-state {
@@ -200,55 +185,62 @@
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            color: #666;
+            color: #616161;
         }
         
-        .empty-state h3 {
-            margin-bottom: 10px;
-            font-size: 18px;
-        }
-
+        /* --- Inspector Styling --- */
         #glyphInspector {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 500px;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 350px;
+            max-height: 90vh;
             background: #2d2d2d;
-            border: 2px solid #404040;
-            border-radius: 8px;
-            padding: 20px;
-            z-index: 1000;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid #404040;
+            border-radius: 6px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+            z-index: 20;
             display: none;
-            max-height: 80vh;
-            overflow-y: auto;
+            flex-direction: column;
+            overflow: hidden;
         }
-
+        
         .inspector-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            padding: 10px 15px;
+            background: #333;
             border-bottom: 1px solid #404040;
-            padding-bottom: 10px;
+            color: white;
         }
-
+        
+        #inspectorContent {
+            padding: 15px;
+            font-size: 12px;
+            overflow-y: auto;
+        }
+        
         .inspector-section {
             margin-bottom: 15px;
-            padding: 10px;
-            background: #1a1a1a;
-            border-radius: 4px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #404040;
         }
-
-        .inspector-section pre {
-            background: #000;
-            padding: 10px;
+        
+        .inspector-section:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+        
+        #inspectorContent pre {
+            background: #1a1a1a;
+            padding: 8px;
             border-radius: 4px;
-            font-size: 12px;
-            max-height: 200px;
-            overflow: auto;
-            white-space: pre-wrap;
+            overflow-x: auto;
+            margin-top: 5px;
+            font-size: 10px;
+            color: #ccc;
         }
     </style>
 </head>
@@ -264,50 +256,32 @@
             
             <div class="controls">
                 <button class="btn" id="startTracing">▶ Start Tracing</button>
-                <button class="btn btn-danger" id="stopTracing">⏹ Stop</button>
+                <button class="btn btn-danger" id="stopTracing" disabled style="opacity: 0.5;">⏹ Stop</button>
                 <button class="btn" id="clearGraph">🗑 Clear</button>
                 <button class="btn btn-success" id="exportGlyph">💾 Export .glyph</button>
             </div>
             
-            <div class="glyph-palette">
-                <h4>Glyph Palette</h4>
-                <div class="palette-grid">
-                    <div class="glyph-item" data-type="○" title="DATA_NODE">○</div>
-                    <div class="glyph-item" data-type="□" title="TEXT_NODE">□</div>
-                    <div class="glyph-item" data-type="△" title="LIST_NODE">△</div>
-                    <div class="glyph-item" data-type="◇" title="BOOL_NODE">◇</div>
-                    <div class="glyph-item" data-type="▷" title="FUNCTION_NODE">▷</div>
-                    <div class="glyph-item" data-type="⟳" title="LOOP_NODE">⟳</div>
-                    <div class="glyph-item" data-type="◯" title="CONDITION_NODE">◯</div>
-                    <div class="glyph-item" data-type="⤶" title="OUTPUT_NODE">⤶</div>
-                    <div class="glyph-item" data-type="⚡" title="ERROR_NODE">⚡</div>
-                    <div class="glyph-item" data-type="🔄" title="ASYNC_NODE">🔄</div>
-                    <div class="glyph-item" data-type="⤵" title="INPUT_NODE">⤵</div>
-                    <div class="glyph-item" data-type="⤴" title="RETURN_NODE">⤴</div>
-                </div>
-            </div>
-            
             <div class="legend">
-                <h4>Node Types</h4>
+                <h4>Node Types (Glyph Compliance v1.0)</h4>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #2e7d32;"></div>
-                    <span>Data/Value Nodes</span>
+                    <div class="legend-color" style="background: #2196F3;"></div>
+                    <span>🟦🔷 Function & Data Nodes</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #1565c0;"></div>
-                    <span>Async Operations</span>
+                    <div class="legend-color" style="background: #FFEB3B;"></div>
+                    <span>🔶🎯 Async & Event Nodes</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #6a1b9a;"></div>
-                    <span>Functions/Processing</span>
+                    <div class="legend-color" style="background: #F44336;"></div>
+                    <span>🟥 Error/Exception Nodes</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #c62828;"></div>
-                    <span>Errors/Exceptions</span>
+                    <div class="legend-color" style="background: #4CAF50;"></div>
+                    <span>🟢 Output Nodes</span>
                 </div>
                 <div class="legend-item">
-                    <div class="legend-color" style="background: #ff6f00;"></div>
-                    <span>Input/Output</span>
+                    <div class="legend-color" style="background: #00BCD4;"></div>
+                    <span>📥❓ Input & Control Flow</span>
                 </div>
             </div>
             
