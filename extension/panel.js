@@ -298,50 +298,114 @@ class GlyphDevToolsPanel {
     }
     
     inspectNode(nodeData) {
-        const inspector = document.getElementById('glyphInspector');
-        const content = document.getElementById('inspectorContent');
-        
-        let html = `
+    const inspector = document.getElementById('glyphInspector');
+    const content = document.getElementById('inspectorContent');
+    
+    let html = `
+        <div class="inspector-section">
+            <strong>Node Information</strong><br>
+            Type: ${nodeData.type}<br>
+            Label: ${nodeData.label}<br>
+            Time: ${new Date(nodeData.timestamp).toLocaleTimeString()}<br>
+            ID: ${nodeData.id}
+        </div>
+    `;
+
+    // Get source information from state manager
+    if (nodeData.properties?.executionId) {
+        // Query content script for state manager data
+        chrome.devtools.inspectedWindow.eval(`
+            if (window.glyphStateManager && '${nodeData.properties.executionId}') {
+                const sourceInfo = window.glyphStateManager.getSourceForNode('${nodeData.properties.executionId}');
+                const snapshot = window.glyphStateManager.getSnapshotForExecution('${nodeData.properties.executionId}');
+                JSON.stringify({
+                    source: sourceInfo,
+                    snapshot: snapshot
+                });
+            } else {
+                JSON.stringify({ error: 'State manager not available' });
+            }
+        `, (result, isException) => {
+            if (!isException && result) {
+                try {
+                    const stateData = JSON.parse(result);
+                    this.updateInspectorWithStateData(content, stateData, nodeData);
+                } catch (e) {
+                    console.error('Failed to parse state data:', e);
+                }
+            }
+        });
+    }
+
+    if (nodeData.properties?.source) {
+        const source = nodeData.properties.source;
+        html += `
             <div class="inspector-section">
-                <strong>Node Information</strong><br>
-                Type: ${nodeData.type}<br>
-                Label: ${nodeData.label}<br>
-                Time: ${new Date(nodeData.timestamp).toLocaleTimeString()}<br>
-                ID: ${nodeData.id}
+                <strong>Source Location</strong><br>
+                File: ${source.fileName}<br>
+                Line: ${source.lineNumber}<br>
+                Column: ${source.columnNumber}<br>
+                Function: ${source.functionName}
             </div>
         `;
+    }
 
-        if (nodeData.properties?.source) {
-            const source = nodeData.properties.source;
+    if (nodeData.properties) {
+        const props = { ...nodeData.properties };
+        delete props.source;
+        delete props.executionId;
+        
+        if (Object.keys(props).length > 0) {
             html += `
                 <div class="inspector-section">
-                    <strong>Source Location</strong><br>
-                    File: ${source.fileName}<br>
-                    Line: ${source.lineNumber}<br>
-                    Column: ${source.columnNumber}<br>
-                    Function: ${source.functionName}
+                    <strong>Properties</strong>
+                    <pre>${JSON.stringify(props, null, 2)}</pre>
                 </div>
             `;
         }
-
-        if (nodeData.properties) {
-            const props = { ...nodeData.properties };
-            delete props.source;
-            
-            if (Object.keys(props).length > 0) {
-                html += `
-                    <div class="inspector-section">
-                        <strong>Properties</strong>
-                        <pre>${JSON.stringify(props, null, 2)}</pre>
-                    </div>
-                `;
-            }
-        }
-
-        content.innerHTML = html;
-        inspector.style.display = 'block';
     }
-    
+
+    content.innerHTML = html;
+    inspector.style.display = 'block';
+}
+
+updateInspectorWithStateData(content, stateData, nodeData) {
+    let additionalHTML = '';
+
+    if (stateData.source && stateData.source.fileName !== 'unknown') {
+        additionalHTML += `
+            <div class="inspector-section">
+                <strong>Enhanced Source Info</strong><br>
+                File: ${stateData.source.fileName}<br>
+                Line: ${stateData.source.lineNumber}<br>
+                Function: ${stateData.source.functionName}<br>
+                <small>Stack: ${stateData.source.stack || 'Not available'}</small>
+            </div>
+        `;
+    }
+
+    if (stateData.snapshot && stateData.snapshot.variables) {
+        additionalHTML += `
+            <div class="inspector-section">
+                <strong>Variable Snapshot</strong>
+                <pre>${JSON.stringify(stateData.snapshot.variables, null, 2)}</pre>
+            </div>
+        `;
+    }
+
+    if (stateData.error) {
+        additionalHTML += `
+            <div class="inspector-section">
+                <strong>State Info</strong><br>
+                ${stateData.error}
+            </div>
+        `;
+    }
+
+    // Insert the state data at the beginning
+    const existingContent = content.innerHTML;
+    content.innerHTML = additionalHTML + existingContent;
+}
     clearGraph() {
         this.nodes.forEach(node => node.element.remove());
         this.nodes.clear();
