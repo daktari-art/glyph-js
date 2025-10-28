@@ -24,6 +24,13 @@
         setupTracing() {
             console.log('🔮 Setting up Glyph tracing...');
             
+            // Check if state manager is available
+            if (window.glyphStateManager) {
+                console.log('🔮 State manager available - enhanced tracing enabled');
+            } else {
+                console.warn('🔮 State manager not available - basic tracing only');
+            }
+            
             // Wrap async operations
             this.wrapAsyncOperations();
             this.catchErrors();
@@ -43,6 +50,15 @@
                 const callId = this.generateNodeId();
                 const sourceContext = this.captureSourceContext();
                 
+                // Use state manager if available
+                if (window.glyphStateManager) {
+                    window.glyphStateManager.mapSourceLocation(callId, sourceContext);
+                    window.glyphStateManager.captureVariableSnapshot(callId + '_start', {
+                        arguments: args,
+                        functionName: 'fetch'
+                    });
+                }
+                
                 const fetchNode = {
                     id: callId,
                     type: "🔄",
@@ -51,7 +67,8 @@
                     properties: {
                         url: args[0],
                         method: args[1]?.method || 'GET',
-                        source: sourceContext
+                        source: sourceContext,
+                        executionId: callId  // For state manager lookup
                     }
                 };
                 
@@ -60,6 +77,14 @@
                 
                 return originalFetch.apply(this, args)
                     .then(response => {
+                        // Use state manager if available
+                        if (window.glyphStateManager) {
+                            window.glyphStateManager.captureVariableSnapshot(callId + '_response', {
+                                returnValue: response,
+                                functionName: 'fetch'
+                            });
+                        }
+                        
                         const successNode = {
                             id: this.generateNodeId(),
                             type: "⤶",
@@ -67,7 +92,8 @@
                             timestamp: Date.now(),
                             properties: {
                                 status: response.status,
-                                ok: response.ok
+                                ok: response.ok,
+                                executionId: callId
                             }
                         };
                         
@@ -78,13 +104,22 @@
                         return response;
                     })
                     .catch(error => {
+                        // Use state manager if available
+                        if (window.glyphStateManager) {
+                            window.glyphStateManager.captureVariableSnapshot(callId + '_error', {
+                                error: error,
+                                functionName: 'fetch'
+                            });
+                        }
+                        
                         const errorNode = {
                             id: this.generateNodeId(),
                             type: "⚡",
-                            label: `Fetch Error`,
+                            label: `Fetch Error: ${error.message}`,
                             timestamp: Date.now(),
                             properties: {
-                                error: error.message
+                                error: error.message,
+                                executionId: callId
                             }
                         };
                         
@@ -109,6 +144,15 @@
                 const callId = this.generateNodeId();
                 const sourceContext = this.captureSourceContext();
                 
+                // Use state manager if available
+                if (window.glyphStateManager) {
+                    window.glyphStateManager.mapSourceLocation(callId, sourceContext);
+                    window.glyphStateManager.captureVariableSnapshot(callId + '_setup', {
+                        arguments: [delay, ...args],
+                        functionName: timerName
+                    });
+                }
+                
                 const timerNode = {
                     id: callId,
                     type: "🔄",
@@ -117,7 +161,8 @@
                     properties: {
                         delay: delay,
                         type: timerName,
-                        source: sourceContext
+                        source: sourceContext,
+                        executionId: callId
                     }
                 };
                 
@@ -125,11 +170,22 @@
                 this.sendToDevTools('NODE_ADDED', timerNode);
                 
                 const wrappedCallback = (...cbArgs) => {
+                    // Use state manager if available
+                    if (window.glyphStateManager) {
+                        window.glyphStateManager.captureVariableSnapshot(callId + '_callback', {
+                            arguments: cbArgs,
+                            functionName: 'timerCallback'
+                        });
+                    }
+                    
                     const resultNode = {
                         id: this.generateNodeId(),
                         type: "⤶",
                         label: `Timer Executed`,
-                        timestamp: Date.now()
+                        timestamp: Date.now(),
+                        properties: {
+                            executionId: callId
+                        }
                     };
                     
                     this.addNode(resultNode);
@@ -169,7 +225,7 @@
                 const errorNode = {
                     id: this.generateNodeId(),
                     type: "⚡",
-                    label: `Unhandled Promise`,
+                    label: `Unhandled Promise: ${event.reason?.message || String(event.reason)}`,
                     timestamp: Date.now(),
                     properties: {
                         reason: event.reason?.message || String(event.reason)
