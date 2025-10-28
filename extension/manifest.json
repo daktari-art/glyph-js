@@ -26,6 +26,7 @@
       "js": [
         "runtime/state-manager.js",
         "content-script.js"
+        "runtime/analysis-utility.js"
       ],
       "run_at": "document_start"
     }
