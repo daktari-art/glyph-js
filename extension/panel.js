@@ -1,5 +1,3 @@
-// --- NEW, FULLY COMPLIANT AND CORRECTED panel.js ---
-
 class GlyphDevToolsPanel {
     constructor() {
         this.nodes = new Map();
@@ -13,29 +11,36 @@ class GlyphDevToolsPanel {
         console.log('🔮 Glyph Language DevTools Panel initialized');
     }
 
-    // --- NEW: Compliance Helper Functions (Maps Glyphs to Visuals) ---
+    // --- Compliance Helper Functions ---
     getNodeStyle(type) {
         const styles = {
-            '🟦': { color: '#2196F3', label: 'DATA_NODE' },      // Blue: Data
-            '🟩': { color: '#4CAF50', label: 'TEXT_NODE' },      // Green: String Data
-            '🟨': { color: '#FFC107', label: 'LIST_NODE' },      // Yellow: List
-            '🟥': { color: '#F44336', label: 'ERROR_NODE' },     // Red: Errors
-            '🟪': { color: '#9C27B0', label: 'STATE_NODE' },     // Purple: State
-            '🔷': { color: '#1E88E5', label: 'FUNCTION_NODE' },  // Blue: Pure Function
-            '🔶': { color: '#FFEB3B', label: 'ASYNC_NODE' },     // Yellow: Async
-            '🔄': { color: '#FF9800', label: 'LOOP_NODE' },      // Orange: Loop
-            '❓': { color: '#00BCD4', label: 'CONDITION_NODE' }, // Cyan: Condition
-            '📥': { color: '#00BCD4', label: 'INPUT_NODE' },     // Cyan: System Input
-            '🟢': { color: '#4CAF50', label: 'OUTPUT_NODE' },    // Green: Success/Output
-            '🎯': { color: '#FFEB3B', label: 'EVENT_NODE' },     // Yellow: Event Trigger
+            '🟦': { color: '#2196F3', label: 'DATA_NODE', glyph: '🟦' },
+            '🟩': { color: '#4CAF50', label: 'TEXT_NODE', glyph: '🟩' },
+            '🟨': { color: '#FFC107', label: 'LIST_NODE', glyph: '🟨' },
+            '🟥': { color: '#F44336', label: 'ERROR_NODE', glyph: '🟥' },
+            '🟪': { color: '#9C27B0', label: 'STATE_NODE', glyph: '🟪' },
+            '🔷': { color: '#1E88E5', label: 'FUNCTION_NODE', glyph: '🔷' },
+            '🔶': { color: '#FFEB3B', label: 'ASYNC_NODE', glyph: '🔶' },
+            '🔄': { color: '#FF9800', label: 'LOOP_NODE', glyph: '🔄' },
+            '❓': { color: '#00BCD4', label: 'CONDITION_NODE', glyph: '❓' },
+            '📥': { color: '#00BCD4', label: 'INPUT_NODE', glyph: '📥' },
+            '🟢': { color: '#4CAF50', label: 'OUTPUT_NODE', glyph: '🟢' },
+            '🎯': { color: '#FFEB3B', label: 'EVENT_NODE', glyph: '🎯' },
+            '○': { color: '#2196F3', label: 'DATA_NODE (Legacy)', glyph: '🟦' },
+            '□': { color: '#4CAF50', label: 'TEXT_NODE (Legacy)', glyph: '🟩' },
+            '▷': { color: '#1E88E5', label: 'FUNCTION_NODE (Legacy)', glyph: '🔷' },
+            '⚡': { color: '#F44336', label: 'ERROR_NODE (Legacy)', glyph: '🟥' },
+            '⤵': { color: '#00BCD4', label: 'INPUT_NODE (Legacy)', glyph: '📥' },
+            '⤴': { color: '#4CAF50', label: 'OUTPUT_NODE (Legacy)', glyph: '🟢' },
+            '⤶': { color: '#4CAF50', label: 'OUTPUT_NODE (Legacy)', glyph: '🟢' }
         };
 
-        const style = styles[type] || { color: '#757575', label: 'Unknown' };
+        const style = styles[type] || { color: '#757575', label: 'Unknown', glyph: type };
         return {
             backgroundColor: style.color,
             borderColor: style.color,
             label: style.label,
-            glyph: type
+            glyph: style.glyph
         };
     }
 
@@ -44,10 +49,11 @@ class GlyphDevToolsPanel {
             '→': { stroke: '#4CAF50', dash: 'none' },        // DATA_FLOW (Green/Success)
             '⤵️': { stroke: '#F44336', dash: '5,5' },       // ERROR_FLOW (Red/Error)
             '⤴️': { stroke: '#2196F3', dash: '3,3' },       // RETURN_FLOW (Blue/Data)
-            '🔄': { stroke: '#FFC107', dash: '8,4' }         // ASYNC_FLOW (Yellow/Async)
+            '⚡': { stroke: '#F44336', dash: '5,5' }        // Legacy Error Flow
         };
         return styles[type] || { stroke: '#757575', dash: 'none' };
     }
+    // --- END OF NEW HELPERS ---
 
     initializeUI() {
         this.executionGraph = document.getElementById('executionGraph');
@@ -57,7 +63,7 @@ class GlyphDevToolsPanel {
         this.stats = document.getElementById('stats');
         
         this.updateStats();
-        this.addArrowMarker();
+        this.addArrowMarker(); 
     }
 
     setupMessageHandling() {
@@ -68,60 +74,74 @@ class GlyphDevToolsPanel {
         });
     }
 
-    // --- CRITICAL FIX: CENTRALIZED COMMAND SENDER ---
+    // --- CENTRALIZED COMMAND SENDER (The original fix for "tracer not found") ---
     sendMessageToInspectedWindow(command) {
-        const code = `
-            if (window.glyphTracer) {
-                window.postMessage({ type: 'GLYPH_COMMAND', command: '${command}' }, '*');
-                'Command sent: ${command}';
-            } else {
-                'Error: Glyph tracer not found';
-            }
-        `;
+        // Correct way to execute code (send postMessage) in the inspected page's context
+        const code = `window.postMessage({ type: 'GLYPH_COMMAND', command: '${command}' }, '*');`;
+        
         chrome.devtools.inspectedWindow.eval(code, (result, isException) => {
-            if (isException || result.startsWith('Error:')) {
-                console.error(`Error sending command ${command}:`, isException || result);
-                this.status.textContent = `❌ Error: Glyph tracer not found. (Command: ${command})`;
-            } else {
-                console.log(`Command successful: ${command}`);
+            if (isException) {
+                console.error(`Error sending command ${command}:`, isException);
+                this.status.textContent = `❌ ERROR: Communication failed. Try refreshing the page.`;
+            } else if (command === 'START_TRACING') {
+                this.status.textContent = '🟢 Tracing Active...';
             }
         });
     }
     
     setupEventListeners() {
-        document.getElementById('startTracing').addEventListener('click', () => {
-            this.startTracing();
-        });
         
-        document.getElementById('stopTracing').addEventListener('click', () => {
-            this.stopTracing();
-        });
+        // --- FIX: Null checks added for safety ---
+        const startBtn = document.getElementById('startTracing');
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                this.startTracing();
+            });
+        }
         
-        document.getElementById('clearGraph').addEventListener('click', () => {
-            this.clearGraph();
-        });
+        const stopBtn = document.getElementById('stopTracing');
+        if (stopBtn) {
+            stopBtn.addEventListener('click', () => {
+                this.stopTracing();
+            });
+        }
         
-        document.getElementById('exportGlyph').addEventListener('click', () => {
-            this.exportAsGlyph();
-        });
+        const clearBtn = document.getElementById('clearGraph');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.clearGraph();
+            });
+        }
         
-        document.getElementById('closeInspector').addEventListener('click', () => {
-            document.getElementById('glyphInspector').style.display = 'none';
-        });
+        const exportBtn = document.getElementById('exportGlyph');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                this.exportAsGlyph();
+            });
+        }
+        
+        const closeInspectorBtn = document.getElementById('closeInspector');
+        if (closeInspectorBtn) {
+            closeInspectorBtn.addEventListener('click', () => {
+                document.getElementById('glyphInspector').style.display = 'none';
+            });
+        }
 
-        this.executionGraph.addEventListener('click', (e) => {
-            const target = e.target.closest('.node');
-            if (target && this.nodes.has(target.id)) {
-                this.inspectNode(this.nodes.get(target.id).data);
-            }
-        });
+        if (this.executionGraph) {
+            this.executionGraph.addEventListener('click', (e) => {
+                const target = e.target.closest('.node');
+                if (target && this.nodes.has(target.id)) {
+                    this.inspectNode(this.nodes.get(target.id).data);
+                }
+            });
+        }
     }
     
+    // --- TRACING START/STOP (Uses the corrected sendMessageToInspectedWindow) ---
     startTracing() {
         if (this.isTracing) return;
         this.isTracing = true;
         this.sendMessageToInspectedWindow('START_TRACING');
-        this.status.textContent = '🟢 Tracing Active...';
         this.updateTracingUI();
     }
     
@@ -137,16 +157,18 @@ class GlyphDevToolsPanel {
         const startBtn = document.getElementById('startTracing');
         const stopBtn = document.getElementById('stopTracing');
         
-        if (this.isTracing) {
-            startBtn.disabled = true;
-            stopBtn.disabled = false;
-            startBtn.style.opacity = '0.5';
-            stopBtn.style.opacity = '1';
-        } else {
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
-            startBtn.style.opacity = '1';
-            stopBtn.style.opacity = '0.5';
+        if (startBtn && stopBtn) {
+            if (this.isTracing) {
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                startBtn.style.opacity = '0.5';
+                stopBtn.style.opacity = '1';
+            } else {
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                startBtn.style.opacity = '1';
+                stopBtn.style.opacity = '0.5';
+            }
         }
     }
     
@@ -195,14 +217,19 @@ class GlyphDevToolsPanel {
             node.title = `${source.fileName}:${source.lineNumber}`;
         }
 
-        node.style.left = `20px`;
-        node.style.top = `20px`;
+        node.style.left = `${Math.random() * 500 + 50}px`;
+        node.style.top = `${Math.random() * 300 + 50}px`;
         
         this.makeDraggable(node);
         
+        node.addEventListener('click', (e) => {
+            this.inspectNode(nodeData);
+            e.stopPropagation();
+        });
+        
         return node;
     }
-
+    
     makeDraggable(element) {
         let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
         const self = this;
@@ -270,16 +297,19 @@ class GlyphDevToolsPanel {
         line.setAttribute('stroke', lineStyle.stroke);
         line.setAttribute('stroke-width', '2');
         line.setAttribute('stroke-dasharray', lineStyle.dash);
-        line.setAttribute('marker-end', 'url(#arrowhead)');
+        
+        const markerColor = lineStyle.stroke; 
+        line.setAttribute('marker-end', `url(#arrowhead-${markerColor.replace('#', '')})`);
         
         const updateLine = () => {
-            const nodeWidth = 140; 
-            const nodeHeight = 60; 
-            
-            const x1 = fromNode.offsetLeft + nodeWidth / 2;
-            const y1 = fromNode.offsetTop + nodeHeight / 2;
-            const x2 = toNode.offsetLeft + nodeWidth / 2;
-            const y2 = toNode.offsetTop + nodeHeight / 2;
+            const fromRect = fromNode.getBoundingClientRect();
+            const toRect = toNode.getBoundingClientRect();
+            const graphRect = this.executionGraph.getBoundingClientRect();
+
+            const x1 = fromRect.left + fromNode.offsetWidth / 2 - graphRect.left;
+            const y1 = fromRect.top + fromNode.offsetHeight / 2 - graphRect.top;
+            const x2 = toRect.left + toNode.offsetWidth / 2 - graphRect.left;
+            const y2 = toRect.top + toNode.offsetHeight / 2 - graphRect.top;
             
             line.setAttribute('x1', x1);
             line.setAttribute('y1', y1);
@@ -296,8 +326,8 @@ class GlyphDevToolsPanel {
         const timeSorted = nodesArray.sort((a, b) => a.data.timestamp - b.data.timestamp);
         
         const gridSize = Math.ceil(Math.sqrt(nodesArray.length));
-        const nodeWidth = 140;
-        const nodeHeight = 80;
+        const nodeWidth = 140; 
+        const nodeHeight = 80;  
         const padding = 20;
         
         timeSorted.forEach((nodeWrapper, index) => {
@@ -322,33 +352,41 @@ class GlyphDevToolsPanel {
             this.glyphCanvas.removeChild(this.glyphCanvas.firstChild);
         }
         
-        this.addArrowMarker();
+        this.addArrowMarker(); 
         
         this.connections.forEach(conn => this.drawConnection(conn));
     }
     
     addArrowMarker() {
         const svgNS = "http://www.w3.org/2000/svg";
+        let defs = this.glyphCanvas.querySelector('defs');
+        if (!defs) {
+            defs = document.createElementNS(svgNS, "defs");
+            this.glyphCanvas.appendChild(defs);
+        }
+
+        const connectionColors = ['#4CAF50', '#F44336', '#2196F3']; // DATA_FLOW, ERROR_FLOW, RETURN_FLOW
         
-        if (this.glyphCanvas.querySelector('defs')) return; 
-        
-        const defs = document.createElementNS(svgNS, "defs");
-        const marker = document.createElementNS(svgNS, "marker");
-        
-        marker.setAttribute('id', 'arrowhead');
-        marker.setAttribute('markerWidth', '10');
-        marker.setAttribute('markerHeight', '7');
-        marker.setAttribute('refX', '9');
-        marker.setAttribute('refY', '3.5');
-        marker.setAttribute('orient', 'auto');
-        
-        const polygon = document.createElementNS(svgNS, "polygon");
-        polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
-        polygon.setAttribute('fill', '#4CAF50');
-        
-        marker.appendChild(polygon);
-        defs.appendChild(marker);
-        this.glyphCanvas.appendChild(defs);
+        connectionColors.forEach(color => {
+            const markerId = `arrowhead-${color.replace('#', '')}`;
+            if (defs.querySelector(`#${markerId}`)) return; 
+
+            const marker = document.createElementNS(svgNS, "marker");
+            marker.setAttribute('id', markerId);
+            marker.setAttribute('markerWidth', '10');
+            marker.setAttribute('markerHeight', '7');
+            marker.setAttribute('refX', '9');
+            marker.setAttribute('refY', '3.5');
+            marker.setAttribute('orient', 'auto');
+            marker.setAttribute('markerUnits', 'strokeWidth');
+            
+            const polygon = document.createElementNS(svgNS, "polygon");
+            polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
+            polygon.setAttribute('fill', color);
+            
+            marker.appendChild(polygon);
+            defs.appendChild(marker);
+        });
     }
     
     inspectNode(nodeData) {
@@ -371,6 +409,7 @@ class GlyphDevToolsPanel {
             chrome.devtools.inspectedWindow.eval(`
                 (function() {
                     if (window.glyphStateManager) {
+                        const sourceInfo = window.glyphStateManager.getSourceForNode('${executionId}');
                         const snapshot = window.glyphStateManager.variableSnapshots.get('${executionId}_start');
                         
                         window.postMessage({
@@ -378,31 +417,66 @@ class GlyphDevToolsPanel {
                             payload: {
                                 event: 'SNAPSHOT_RETURN',
                                 nodeId: '${nodeData.id}',
-                                data: { snapshot: snapshot }
+                                data: { source: sourceInfo, snapshot: snapshot }
+                            }
+                        }, '*');
+                    } else {
+                        window.postMessage({
+                            type: 'GLYPH_TRACER_DATA',
+                            payload: {
+                                event: 'SNAPSHOT_RETURN',
+                                nodeId: '${nodeData.id}',
+                                data: { error: 'State manager not available for inspection' }
                             }
                         }, '*');
                     }
                 })();
-                'Snapshot request sent...';
+                'Snapshot request sent...'; 
             `);
         }
-
-        content.innerHTML = html;
-        inspector.style.display = 'block';
+        
+        const existingHandler = window._glyphSnapshotHandler;
+        if (existingHandler) {
+            window.removeEventListener('message', existingHandler);
+        }
 
         const snapshotHandler = (event) => {
             if (event.data.type === 'GLYPH_TRACER_DATA' && event.data.payload.event === 'SNAPSHOT_RETURN' && event.data.payload.nodeId === nodeData.id) {
                 const stateData = event.data.payload.data;
                 this.updateInspectorWithStateData(content, stateData, nodeData);
-                window.removeEventListener('message', snapshotHandler);
+                window.removeEventListener('message', snapshotHandler); 
             }
         };
 
         window.addEventListener('message', snapshotHandler);
+        window._glyphSnapshotHandler = snapshotHandler; 
+
+        content.innerHTML = html;
+        inspector.style.display = 'block';
     }
     
     updateInspectorWithStateData(content, stateData, nodeData) {
         let additionalHTML = '';
+
+        if (stateData.error) {
+            additionalHTML += `
+                <div class="inspector-section">
+                    <strong>State Info</strong><br>
+                    ${stateData.error}
+                </div>
+            `;
+        }
+
+        if (stateData.source && stateData.source.file !== 'unknown') {
+            additionalHTML += `
+                <div class="inspector-section">
+                    <strong>Enhanced Source Info</strong><br>
+                    File: ${stateData.source.file}<br>
+                    Line: ${stateData.source.line}<br>
+                    Function: ${stateData.source.function}<br>
+                </div>
+            `;
+        }
 
         if (stateData.snapshot && stateData.snapshot.variables) {
             additionalHTML += `
@@ -413,7 +487,8 @@ class GlyphDevToolsPanel {
             `;
         }
 
-        content.innerHTML = additionalHTML + content.innerHTML;
+        const existingContent = content.innerHTML;
+        content.innerHTML = additionalHTML + existingContent;
     }
     
     clearGraph() {
@@ -426,13 +501,16 @@ class GlyphDevToolsPanel {
         document.getElementById('glyphInspector').style.display = 'none';
         this.status.textContent = 'Graph Cleared.';
     }
-
+    
     exportAsGlyph() {
         const nodes = Array.from(this.nodes.values()).map(n => ({
-            id: n.id,
+            id: n.data.id,
             type: n.data.type,
             label: n.data.label,
-            position: n.position,
+            position: {
+                x: parseInt(n.element.style.left) || 0,
+                y: parseInt(n.element.style.top) || 0
+            },
             properties: n.data.properties || {}
         }));
         
@@ -465,11 +543,15 @@ class GlyphDevToolsPanel {
     }
     
     hideEmptyState() {
-        this.emptyState.style.display = 'none';
+        if (this.emptyState) {
+             this.emptyState.style.display = 'none';
+        }
     }
     
     showEmptyState() {
-        this.emptyState.style.display = 'block';
+        if (this.emptyState) {
+            this.emptyState.style.display = 'block';
+        }
     }
 }
 
