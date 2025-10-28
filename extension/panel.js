@@ -21,12 +21,10 @@ class GlyphDevToolsPanel {
             '🟨': { color: '#FFC107', label: 'LIST_NODE' },      // Yellow: List
             '🟥': { color: '#F44336', label: 'ERROR_NODE' },     // Red: Errors
             '🟪': { color: '#9C27B0', label: 'STATE_NODE' },     // Purple: State
-
             '🔷': { color: '#1E88E5', label: 'FUNCTION_NODE' },  // Blue: Pure Function
             '🔶': { color: '#FFEB3B', label: 'ASYNC_NODE' },     // Yellow: Async
             '🔄': { color: '#FF9800', label: 'LOOP_NODE' },      // Orange: Loop
             '❓': { color: '#00BCD4', label: 'CONDITION_NODE' }, // Cyan: Condition
-
             '📥': { color: '#00BCD4', label: 'INPUT_NODE' },     // Cyan: System Input
             '🟢': { color: '#4CAF50', label: 'OUTPUT_NODE' },    // Green: Success/Output
             '🎯': { color: '#FFEB3B', label: 'EVENT_NODE' },     // Yellow: Event Trigger
@@ -37,7 +35,7 @@ class GlyphDevToolsPanel {
             backgroundColor: style.color,
             borderColor: style.color,
             label: style.label,
-            glyph: type // Use the glyph itself
+            glyph: type
         };
     }
 
@@ -50,7 +48,6 @@ class GlyphDevToolsPanel {
         };
         return styles[type] || { stroke: '#757575', dash: 'none' };
     }
-    // --- END OF NEW HELPERS ---
 
     initializeUI() {
         this.executionGraph = document.getElementById('executionGraph');
@@ -64,7 +61,6 @@ class GlyphDevToolsPanel {
     }
 
     setupMessageHandling() {
-        // Listen for messages from content script via window.postMessage
         window.addEventListener('message', (event) => {
             if (event.data.type === 'GLYPH_TRACER_DATA') {
                 this.handleTracerData(event.data.payload);
@@ -74,7 +70,6 @@ class GlyphDevToolsPanel {
 
     // --- CRITICAL FIX: CENTRALIZED COMMAND SENDER ---
     sendMessageToInspectedWindow(command) {
-        // Correctly executes the window.postMessage call in the context of the inspected page
         const code = `
             if (window.glyphTracer) {
                 window.postMessage({ type: 'GLYPH_COMMAND', command: '${command}' }, '*');
@@ -122,11 +117,10 @@ class GlyphDevToolsPanel {
         });
     }
     
-    // --- CORRECTED TRACING START/STOP ---
     startTracing() {
         if (this.isTracing) return;
         this.isTracing = true;
-        this.sendMessageToInspectedWindow('START_TRACING'); // Sends the correct command
+        this.sendMessageToInspectedWindow('START_TRACING');
         this.status.textContent = '🟢 Tracing Active...';
         this.updateTracingUI();
     }
@@ -134,7 +128,7 @@ class GlyphDevToolsPanel {
     stopTracing() {
         if (!this.isTracing) return;
         this.isTracing = false;
-        this.sendMessageToInspectedWindow('STOP_TRACING'); // Sends the correct command
+        this.sendMessageToInspectedWindow('STOP_TRACING');
         this.status.textContent = '🟡 Tracing Paused.';
         this.updateTracingUI();
     }
@@ -188,7 +182,6 @@ class GlyphDevToolsPanel {
         node.className = 'node glyph-node'; 
         node.id = nodeData.id;
         
-        // Applying compliant styles inline
         node.style.backgroundColor = style.backgroundColor;
         node.style.borderColor = style.borderColor;
         
@@ -283,7 +276,6 @@ class GlyphDevToolsPanel {
             const nodeWidth = 140; 
             const nodeHeight = 60; 
             
-            // Calculate center points
             const x1 = fromNode.offsetLeft + nodeWidth / 2;
             const y1 = fromNode.offsetTop + nodeHeight / 2;
             const x2 = toNode.offsetLeft + nodeWidth / 2;
@@ -352,7 +344,7 @@ class GlyphDevToolsPanel {
         
         const polygon = document.createElementNS(svgNS, "polygon");
         polygon.setAttribute('points', '0 0, 10 3.5, 0 7');
-        polygon.setAttribute('fill', '#4CAF50'); // Data Flow green
+        polygon.setAttribute('fill', '#4CAF50');
         
         marker.appendChild(polygon);
         defs.appendChild(marker);
@@ -360,7 +352,6 @@ class GlyphDevToolsPanel {
     }
     
     inspectNode(nodeData) {
-        // ... (Simplified inspector logic to focus on core function)
         const inspector = document.getElementById('glyphInspector');
         const content = document.getElementById('inspectorContent');
         
@@ -377,7 +368,6 @@ class GlyphDevToolsPanel {
         if (nodeData.properties?.executionId) {
             const executionId = nodeData.properties.executionId;
             
-            // Request snapshot from the content script
             chrome.devtools.inspectedWindow.eval(`
                 (function() {
                     if (window.glyphStateManager) {
@@ -438,7 +428,6 @@ class GlyphDevToolsPanel {
     }
 
     exportAsGlyph() {
-        // ... (Export logic remains the same)
         const nodes = Array.from(this.nodes.values()).map(n => ({
             id: n.id,
             type: n.data.type,
