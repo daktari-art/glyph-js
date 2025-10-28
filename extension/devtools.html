@@ -209,6 +209,49 @@
             margin-bottom: 10px;
             font-size: 18px;
         }
+
+        #glyphInspector {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            background: #2d2d2d;
+            border: 2px solid #404040;
+            border-radius: 8px;
+            padding: 20px;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            display: none;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .inspector-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #404040;
+            padding-bottom: 10px;
+        }
+
+        .inspector-section {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #1a1a1a;
+            border-radius: 4px;
+        }
+
+        .inspector-section pre {
+            background: #000;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            max-height: 200px;
+            overflow: auto;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -224,8 +267,8 @@
             <div class="controls">
                 <button class="btn" id="startTracing">▶ Start Tracing</button>
                 <button class="btn btn-danger" id="stopTracing">⏹ Stop</button>
-                <button class="btn btn-success" id="clearGraph">🗑 Clear</button>
-                <button class="btn" id="exportGlyph">💾 Export .glyph</button>
+                <button class="btn" id="clearGraph">🗑 Clear</button>
+                <button class="btn btn-success" id="exportGlyph">💾 Export .glyph</button>
             </div>
             
             <div class="glyph-palette">
@@ -272,7 +315,7 @@
             
             <div class="status-bar">
                 <div id="status">Ready to trace JavaScript execution</div>
-                <div id="stats" style="margin-top: 5px;"></div>
+                <div id="stats" style="margin-top: 5px;">Nodes: 0 | Connections: 0</div>
             </div>
         </div>
         
@@ -285,6 +328,14 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div id="glyphInspector">
+        <div class="inspector-header">
+            <h3 style="margin: 0;">Node Inspection</h3>
+            <button id="closeInspector" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;">×</button>
+        </div>
+        <div id="inspectorContent"></div>
     </div>
 
     <script src="devtools.js"></script>
