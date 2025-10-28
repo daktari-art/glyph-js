@@ -21,14 +21,12 @@ class GlyphDevTools {
     }
     
     setupMessageHandling() {
-        // Listen for messages from content script via background
         window.addEventListener('message', (event) => {
             if (event.data.type === 'GLYPH_TRACER_DATA') {
                 this.handleTracerData(event.data.payload);
             }
         });
         
-        // Connect to background script
         this.port = chrome.runtime.connect({ name: "glyph-devtools" });
         
         this.port.onMessage.addListener((message) => {
@@ -56,11 +54,14 @@ class GlyphDevTools {
             this.exportAsGlyph();
         });
         
-        // Glyph palette events
         document.querySelectorAll('.glyph-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 this.addCustomNode(e.target.dataset.type);
             });
+        });
+
+        document.getElementById('closeInspector').addEventListener('click', () => {
+            document.getElementById('glyphInspector').style.display = 'none';
         });
     }
     
@@ -116,7 +117,6 @@ class GlyphDevTools {
         this.nodes.set(nodeData.id, { element: nodeElement, data: nodeData });
         this.executionGraph.appendChild(nodeElement);
         
-        // Position nodes in a flow layout
         this.autoLayoutNodes();
     }
     
@@ -129,13 +129,21 @@ class GlyphDevTools {
             <div class="node-label">${nodeData.label}</div>
         `;
         
-        // Random initial position (will be auto-layouted)
+        if (nodeData.properties?.source) {
+            const source = nodeData.properties.source;
+            node.title = `${source.fileName}:${source.lineNumber}:${source.columnNumber}`;
+        }
+
         node.style.left = `${Math.random() * 500 + 50}px`;
         node.style.top = `${Math.random() * 300 + 50}px`;
         
-        // Make draggable
         this.makeDraggable(node);
         
+        node.addEventListener('click', (e) => {
+            this.inspectNode(nodeData);
+            e.stopPropagation();
+        });
+
         return node;
     }
     
@@ -208,10 +216,8 @@ class GlyphDevTools {
             line.classList.add('connection-error');
         }
         
-        // Set arrow marker
         line.setAttribute('marker-end', 'url(#arrowhead)');
         
-        // Update position based on node positions
         const updateLine = () => {
             const fromRect = fromNode.getBoundingClientRect();
             const toRect = toNode.getBoundingClientRect();
@@ -231,14 +237,12 @@ class GlyphDevTools {
         updateLine();
         this.glyphCanvas.appendChild(line);
         
-        // Update line position when nodes move
         const observer = new MutationObserver(updateLine);
         observer.observe(fromNode, { attributes: true, attributeFilter: ['style'] });
         observer.observe(toNode, { attributes: true, attributeFilter: ['style'] });
     }
     
     autoLayoutNodes() {
-        // Simple auto-layout: arrange nodes in chronological order
         const nodesArray = Array.from(this.nodes.values());
         const timeSorted = nodesArray.sort((a, b) => a.data.timestamp - b.data.timestamp);
         
@@ -255,20 +259,16 @@ class GlyphDevTools {
             node.element.style.top = `${row * (nodeHeight + padding) + padding}px`;
         });
         
-        // Redraw all connections
         this.redrawAllConnections();
     }
     
     redrawAllConnections() {
-        // Clear existing connections
         while (this.glyphCanvas.firstChild) {
             this.glyphCanvas.removeChild(this.glyphCanvas.firstChild);
         }
         
-        // Add arrow marker definition
         this.addArrowMarker();
         
-        // Redraw all connections
         this.connections.forEach(conn => this.drawConnection(conn));
     }
     
@@ -325,6 +325,61 @@ class GlyphDevTools {
         return names[glyphType] || 'Node';
     }
     
+    inspectNode(nodeData) {
+        const inspector = document.getElementById('glyphInspector');
+        const content = document.getElementById('inspectorContent');
+        
+        let html = `
+            <div class="inspector-section">
+                <strong>Node Information</strong><br>
+                Type: ${nodeData.type}<br>
+                Label: ${nodeData.label}<br>
+                Time: ${new Date(nodeData.timestamp).toLocaleTimeString()}<br>
+                ID: ${nodeData.id}
+            </div>
+        `;
+
+        if (nodeData.properties?.source) {
+            const source = nodeData.properties.source;
+            html += `
+                <div class="inspector-section">
+                    <strong>Source Location</strong><br>
+                    File: ${source.fileName}<br>
+                    Line: ${source.lineNumber}<br>
+                    Column: ${source.columnNumber}<br>
+                    Function: ${source.functionName}
+                </div>
+            `;
+        }
+
+        if (nodeData.properties?.executionId) {
+            html += `
+                <div class="inspector-section">
+                    <strong>Execution Context</strong><br>
+                    Execution ID: ${nodeData.properties.executionId}
+                </div>
+            `;
+        }
+
+        if (nodeData.properties) {
+            const props = { ...nodeData.properties };
+            delete props.source;
+            delete props.executionId;
+            
+            if (Object.keys(props).length > 0) {
+                html += `
+                    <div class="inspector-section">
+                        <strong>Properties</strong>
+                        <pre>${JSON.stringify(props, null, 2)}</pre>
+                    </div>
+                `;
+            }
+        }
+
+        content.innerHTML = html;
+        inspector.style.display = 'block';
+    }
+    
     clearGraph() {
         this.nodes.forEach(node => node.element.remove());
         this.nodes.clear();
@@ -340,8 +395,8 @@ class GlyphDevTools {
             type: n.data.type,
             label: n.data.label,
             position: {
-                x: parseInt(n.element.style.left),
-                y: parseInt(n.element.style.top)
+                x: parseInt(n.element.style.left) || 0,
+                y: parseInt(n.element.style.top) || 0
             },
             properties: n.data.properties || {}
         }));
@@ -359,7 +414,6 @@ class GlyphDevTools {
             }
         };
         
-        // Download as .glyph file
         const dataStr = JSON.stringify(glyphProgram, null, 2);
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         
@@ -372,8 +426,7 @@ class GlyphDevTools {
     }
     
     updateStats() {
-        this.stats.textContent = 
-            `Nodes: ${this.nodes.size} | Connections: ${this.connections.length}`;
+        this.stats.textContent = `Nodes: ${this.nodes.size} | Connections: ${this.connections.length}`;
     }
     
     hideEmptyState() {
@@ -385,141 +438,6 @@ class GlyphDevTools {
     }
 }
 
-// Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new GlyphDevTools();
 });
-
-
-    // NEW: Enhanced node creation with inspection
-    createNodeElement(nodeData) {
-        const node = document.createElement('div');
-        node.className = `node node-${this.getNodeTypeClass(nodeData.type)}`;
-        node.id = nodeData.id;
-        node.innerHTML = `
-            <div class="glyph-icon">${nodeData.type}</div>
-            <div class="node-label">${nodeData.label}</div>
-        `;
-        
-        // Add source context to tooltip
-        if (nodeData.properties?.source) {
-            const source = nodeData.properties.source;
-            node.title = `${source.fileName}:${source.lineNumber}:${source.columnNumber}`;
-        }
-
-        // Make draggable
-        this.makeDraggable(node);
-        
-        // Add click handler for inspection
-        node.addEventListener('click', (e) => {
-            this.inspectNode(nodeData);
-            e.stopPropagation();
-        });
-
-        return node;
-    }
-
-    // NEW: Node inspection panel
-    inspectNode(nodeData) {
-        // Create or show inspection panel
-        let inspector = document.getElementById('glyphInspector');
-        if (!inspector) {
-            inspector = this.createInspectorPanel();
-        }
-
-        this.populateInspector(inspector, nodeData);
-        inspector.style.display = 'block';
-    }
-
-    createInspectorPanel() {
-        const inspector = document.createElement('div');
-        inspector.id = 'glyphInspector';
-        inspector.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 400px;
-            background: #2d2d2d;
-            border: 2px solid #404040;
-            border-radius: 8px;
-            padding: 20px;
-            z-index: 1000;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            display: none;
-        `;
-
-        inspector.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                <h3 style="margin: 0;">Node Inspection</h3>
-                <button id="closeInspector" style="background: none; border: none; color: #fff; font-size: 20px; cursor: pointer;">×</button>
-            </div>
-            <div id="inspectorContent"></div>
-        `;
-
-        document.body.appendChild(inspector);
-        
-        // Close button
-        document.getElementById('closeInspector').addEventListener('click', () => {
-            inspector.style.display = 'none';
-        });
-
-        return inspector;
-    }
-
-    populateInspector(inspector, nodeData) {
-        const content = document.getElementById('inspectorContent');
-        
-        let html = `
-            <div style="margin-bottom: 15px;">
-                <strong>Type:</strong> ${nodeData.type}<br>
-                <strong>Label:</strong> ${nodeData.label}<br>
-                <strong>Time:</strong> ${new Date(nodeData.timestamp).toLocaleTimeString()}
-            </div>
-        `;
-
-        // Source information
-        if (nodeData.properties?.source) {
-            const source = nodeData.properties.source;
-            html += `
-                <div style="margin-bottom: 15px; padding: 10px; background: #404040; border-radius: 4px;">
-                    <strong>Source Location:</strong><br>
-                    File: ${source.fileName}<br>
-                    Line: ${source.lineNumber}<br>
-                    Function: ${source.functionName}
-                </div>
-            `;
-        }
-
-        // Variable data
-        if (nodeData.properties?.executionId && window.glyphStateManager) {
-            const snapshot = window.glyphStateManager.variableSnapshots.get(nodeData.properties.executionId);
-            if (snapshot) {
-                html += `
-                    <div style="margin-bottom: 15px;">
-                        <strong>Variables:</strong>
-                        <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; font-size: 12px; max-height: 200px; overflow: auto;">
-${JSON.stringify(snapshot.variables, null, 2)}
-                        </pre>
-                    </div>
-                `;
-            }
-        }
-
-        // Node properties
-        if (nodeData.properties) {
-            html += `
-                <div style="margin-bottom: 15px;">
-                    <strong>Properties:</strong>
-                    <pre style="background: #1a1a1a; padding: 10px; border-radius: 4px; font-size: 12px; max-height: 150px; overflow: auto;">
-${JSON.stringify(nodeData.properties, null, 2)}
-                    </pre>
-                </div>
-            `;
-        }
-
-        content.innerHTML = html;
-    }
-
-    // ... rest of existing code ...
-}
