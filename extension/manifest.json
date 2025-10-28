@@ -1,15 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Glyph Language DevTools",
+  "name": "Glyph Language Debugger",
   "version": "1.0",
-  "description": "Visual data flow programming environment and JavaScript-to-Glyph converter",
+  "description": "Visual data flow programming debugger",
   
   "devtools_page": "devtools.html",
   
   "permissions": [
     "activeTab",
-    "scripting",
-    "storage"
+    "scripting"
   ],
   
   "host_permissions": [
@@ -24,16 +23,8 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": [
-        "runtime/state-manager.js",
-        "content-script.js"
-      ],
+      "js": ["content-script.js"],
       "run_at": "document_start"
     }
-  ],
-  
-  "web_accessible_resources": [{
-    "resources": ["panel.html", "panel.js"],
-    "matches": ["<all_urls>"]
-  }]
+  ]
 }
