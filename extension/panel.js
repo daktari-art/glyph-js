@@ -351,24 +351,56 @@ class GlyphDevToolsPanel {
         }
     }
 
-    handleTracerData(payload) {
-        switch (payload.event) {
-            case 'NODE_ADDED':
-                this.addNodeToGraph(payload.data);
-                break;
-            case 'CONNECTION_ADDED':
-                this.addConnectionToGraph(payload.data);
-                break;
-            case 'DIAGNOSIS_RESULT':
-                this.displaySolutions(payload.data);
-                this.status.textContent = `✅ Diagnosis complete. ${payload.data.length} potential issues found.`;
-                break;
-        }
-
-        this.updateStats();
-        this.hideEmptyState();
-        this.autoLayoutNodes(); // Auto-layout when new nodes are added
+    // In panel.js - Update the handleTracerData method:
+handleTracerData(payload) {
+    switch (payload.event) {
+        case 'EXTENSION_READY':
+            this.status.textContent = `✅ Glyph Ready | State: ${payload.data.stateManager} | Analyzer: ${payload.data.analyzer}`;
+            break;
+        case 'EXTENSION_WARNING':
+            this.status.textContent = `⚠️ ${payload.data.message}`;
+            break;
+        case 'TRACING_SETUP':
+            this.status.textContent = `🔮 Tracing Setup Complete`;
+            break;
+        case 'TRACER_READY':
+            this.status.textContent = `🔮 Tracer Ready - Click "Start Tracing"`;
+            break;
+        case 'TRACING_STARTED':
+            this.status.textContent = '🟢 Tracing Active - Executing operations...';
+            break;
+        case 'TRACING_STOPPED':
+            this.status.textContent = '🟡 Tracing Paused';
+            break;
+        case 'NODE_ADDED':
+            this.addNodeToGraph(payload.data);
+            break;
+        case 'CONNECTION_ADDED':
+            this.addConnectionToGraph(payload.data);
+            break;
+        case 'DIAGNOSIS_STARTED':
+            this.status.textContent = '🧠 Running Diagnosis...';
+            break;
+        case 'DIAGNOSIS_RESULT':
+            this.displaySolutions(payload.data);
+            this.status.textContent = `✅ Diagnosis: ${payload.data.length} issues found`;
+            break;
+        case 'DIAGNOSIS_ERROR':
+            this.status.textContent = `❌ Diagnosis Failed: ${payload.data.error}`;
+            break;
+        case 'DEPENDENCY_ERROR':
+            this.status.textContent = `⚠️ ${payload.data.component} Error: ${payload.data.error}`;
+            break;
+        case 'SNAPSHOT_ERROR':
+            // Just log internally, don't show to user
+            console.warn('Snapshot error:', payload.data.error);
+            break;
     }
+
+    this.updateStats();
+    this.hideEmptyState();
+    this.autoLayoutNodes();
+}
 
     displaySolutions(diagnosisResults) {
         const output = this.diagnosisOutput;
