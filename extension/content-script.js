@@ -2,8 +2,6 @@
 (function() {
     'use strict';
     
-    console.log('🔮 Glyph Language Tracer loading...');
-    
     class GlyphLanguageTracer {
         constructor() {
             this.executionGraph = {
@@ -25,11 +23,17 @@
         }
         
         initializeTracing() {
-            // Wait for dependencies to load
             this.waitForDependencies().then(() => {
                 this.setupTracing();
+                this.sendToDevTools('EXTENSION_READY', { 
+                    stateManager: this.stateManagerReady,
+                    analyzer: this.analyzerReady 
+                });
             }).catch(error => {
-                console.warn('🔮 Some dependencies not available - starting basic tracing:', error);
+                this.sendToDevTools('EXTENSION_WARNING', { 
+                    message: 'Some dependencies not available - starting basic tracing',
+                    error: error.message 
+                });
                 this.setupTracing();
             });
         }
@@ -37,31 +41,29 @@
         waitForDependencies() {
             return new Promise((resolve) => {
                 let attempts = 0;
-                const maxAttempts = 50; // 5 seconds max wait
+                const maxAttempts = 50;
                 
                 const checkDependencies = () => {
                     attempts++;
                     
-                    // Check state manager
                     if (window.GlyphStateManager && !window.glyphStateManager) {
                         try {
                             window.glyphStateManager = new window.GlyphStateManager();
                             this.stateManagerReady = true;
-                            console.log('🔮 State manager initialized');
                         } catch (error) {
-                            console.error('🔮 Failed to initialize state manager:', error);
+                            this.sendToDevTools('DEPENDENCY_ERROR', { 
+                                component: 'StateManager',
+                                error: error.message 
+                            });
                         }
                     } else if (window.glyphStateManager) {
                         this.stateManagerReady = true;
                     }
                     
-                    // Check analyzer
                     if (window.glyphAnalyzer) {
                         this.analyzerReady = true;
-                        console.log('🔮 Analyzer available');
                     }
                     
-                    // Resolve if we have at least state manager or after max attempts
                     if (this.stateManagerReady || attempts >= maxAttempts) {
                         resolve();
                     } else {
@@ -74,15 +76,16 @@
         }
         
         setupTracing() {
-            console.log(`🔮 Tracing setup - State Manager: ${this.stateManagerReady}, Analyzer: ${this.analyzerReady}`);
+            this.sendToDevTools('TRACING_SETUP', { 
+                stateManager: this.stateManagerReady, 
+                analyzer: this.analyzerReady 
+            });
             
             this.wrapAsyncOperations();
             this.catchErrors();
             
-            // Expose to window for DevTools panel
             window.glyphTracer = this;
-            
-            console.log('🔮 Glyph Language Tracer ready');
+            this.sendToDevTools('TRACER_READY', {});
         }
         
         wrapAsyncOperations() {
@@ -94,7 +97,6 @@
                 const fetchId = this.generateNodeId();
                 const startTimestamp = Date.now();
                 
-                // SAFE snapshot capture
                 let snapshotId = null;
                 if (this.stateManagerReady && window.glyphStateManager) {
                     try {
@@ -103,13 +105,13 @@
                             { arguments: args, thisValue: this }
                         );
                     } catch (error) {
-                        console.warn('🔮 Failed to capture snapshot:', error);
+                        this.sendToDevTools('SNAPSHOT_ERROR', { error: error.message });
                     }
                 }
 
                 const node = {
                     id: fetchId,
-                    type: '🔶', // Async Node
+                    type: '🔶',
                     label: `Fetch: ${this.safeString(args[0]).substring(0, 20)}`,
                     timestamp: startTimestamp,
                     properties: { 
@@ -300,6 +302,7 @@
         
         sendToDevTools(eventType, data) {
             try {
+                // Send directly to DevTools panel, NOT to console
                 window.postMessage({
                     type: 'GLYPH_TRACER_DATA',
                     payload: {
@@ -309,28 +312,28 @@
                     }
                 }, '*');
             } catch (error) {
+                // Only log to console as last resort
                 console.warn('🔮 Failed to send to DevTools:', error);
             }
         }
         
-        // SAFE diagnosis runner
         runDiagnosis() {
             if (!this.analyzerReady || !window.glyphAnalyzer) {
-                console.error('🔮 Analyzer not available for diagnosis');
-                return {
+                this.sendToDevTools('DIAGNOSIS_ERROR', { 
                     error: 'Analyzer not loaded',
                     suggestions: ['Check if analysis-utility.js loaded correctly']
-                };
+                });
+                return;
             }
             
             try {
-                return window.glyphAnalyzer.analyzeTimeline();
+                const results = window.glyphAnalyzer.analyzeTimeline();
+                this.sendToDevTools('DIAGNOSIS_RESULT', results);
             } catch (error) {
-                console.error('🔮 Diagnosis failed:', error);
-                return {
+                this.sendToDevTools('DIAGNOSIS_ERROR', { 
                     error: error.message,
                     suggestions: ['Diagnosis engine encountered an error']
-                };
+                });
             }
         }
     }
@@ -343,16 +346,13 @@
         if (event.data.type === 'GLYPH_COMMAND') {
             if (event.data.command === 'START_TRACING') {
                 glyphTracer.isTracing = true;
-                console.log('🔮 Tracing started from DevTools');
+                glyphTracer.sendToDevTools('TRACING_STARTED', {});
             } else if (event.data.command === 'STOP_TRACING') {
                 glyphTracer.isTracing = false;
-                console.log('🔮 Tracing stopped from DevTools');
+                glyphTracer.sendToDevTools('TRACING_STOPPED', {});
             } else if (event.data.command === 'RUN_DIAGNOSIS') {
-                console.log('🧠 Running Automated Diagnosis...');
-                const results = glyphTracer.runDiagnosis();
-                
-                // Send results back to DevTools
-                glyphTracer.sendToDevTools('DIAGNOSIS_RESULT', results);
+                glyphTracer.sendToDevTools('DIAGNOSIS_STARTED', {});
+                glyphTracer.runDiagnosis();
             }
         }
     });
